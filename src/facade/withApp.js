@@ -24,15 +24,22 @@ function withApp(run, { enableBracketedPaste = true, loop = false, cursorStyle =
   stdin.resume();
   stdin.setEncoding('utf8');
 
+  let _cleaned = false;
   function cleanup() {
+    if (_cleaned) return; _cleaned = true;
+    try { keys && keys.detach && keys.detach(); } catch {}
     try { process.stdin.setRawMode && process.stdin.setRawMode(false); } catch {}
-    process.stdout.write('\u001b[0m');
-    process.stdout.write('\u001b[?25h');
+    try { process.stdout.write('\u001b[0m'); } catch {}
+    try { process.stdout.write('\u001b[?25h'); } catch {}
     if (cursorStyle) { try { process.stdout.write('\u001b[0 q'); } catch {} }
-    process.stdout.write('\u001b[?1049l');
+    try { process.stdout.write('\u001b[?1049l'); } catch {}
   }
 
   process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+  process.on('SIGHUP', () => { cleanup(); process.exit(0); });
+  process.on('uncaughtException', (err) => { try { console.error(err); } catch {}; cleanup(); process.exit(1); });
+  process.on('unhandledRejection', (reason) => { try { console.error(reason); } catch {}; cleanup(); process.exit(1); });
   process.on('exit', cleanup);
   let _resizeTimer = null;
   process.stdout.on('resize', () => {
@@ -50,7 +57,9 @@ function withApp(run, { enableBracketedPaste = true, loop = false, cursorStyle =
   const api = { screen, sched, stdin, timers, keys, cleanup };
   // Attach keys by default (caller can also attach manually)
   keys.attach(stdin);
-  const stop = run(api) || (() => {});
+  let stop = () => {};
+  try { stop = run(api) || (() => {}); }
+  catch (e) { cleanup(); throw e; }
   // Kick one initial frame so first paint runs
   sched.requestFrame();
   // Optional loop (off by default). Prefer event-driven frames.
