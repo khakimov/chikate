@@ -21,3 +21,19 @@ All notable changes to this project will be documented here.
 - InputField: added `borderStyle` config to pick rounded/double/etc. borders.
 - ThinkingIndicator: optional animated color wave (`animateColors`, `palette`, `waveSpeed`, `waveWidth`).
  - InputField: added `borderFooter` with `borderFooterAlign` and `borderFooterPosition` to draw a label inside the border (e.g., "─ Enter to send ─").
+
+## 0.2.0 — UX polish, mouse wheel, and demo upgrades
+- Keys and Exit:
+  - Add F1 handling to `KeyParser`; demo uses F1 for Help.
+  - Remove "q to quit" in demos; double Ctrl+C confirms exit.
+- Mouse and Scrolling:
+  - Add `enableMouse` option to `withApp` (default true). `KeyParser` enables SGR 1006 and emits `WheelUp/WheelDown`.
+  - `HistoryView` and `PopupOverlay` handle wheel scroll.
+- Input and Suggestions:
+  - `InputField`: `suggestionSubmitOnPick` (default 'auto') submits slash commands immediately when picked. Only the command token is inserted/submitted (without description).
+- Popup and Layout:
+  - `PopupOverlay`: optional `wrap` (preserve long lines) and `center` (center lines) for improved poster/help layouts.
+- Demo:
+  - `/logo` toggles an animated ASCII logo (suggestion overlay draws correctly above it).
+  - Layering fixes so popups/suggestions never get hidden by background drawings.
+- Docs: Updated withApp/Keys/Widgets/Using/Roadmap to reflect F1, mouse wheel, suggestion auto-submit, and options.
