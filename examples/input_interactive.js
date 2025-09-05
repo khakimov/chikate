@@ -39,7 +39,7 @@ function main() {
   const input = new InputField({
     x: ix, y: iy, width: iw, height: ih, title: 'Message',
     placeholder: 'Type a message, use / for commands. Enter to submit. Esc cancels.',
-    hint: 'Press ? for help • q to quit',
+    hint: 'Type /help for help • q to quit',
     readOnly: false,
     suggestionProvider: (token) => {
       const q = token.toLowerCase();
@@ -48,7 +48,7 @@ function main() {
     onSubmit: (val) => {
       const trimmed = String(val || '').trim();
       if (!trimmed) return;
-      if (trimmed === '/help' || trimmed === '?') {
+      if (trimmed === '/help') {
         openHelp();
         return;
       }
@@ -110,10 +110,9 @@ function main() {
   stdin.on('data', (key) => {
     if (overlays.isOpen()) {
       overlays.handleKey(key);
-      if (!overlays.isOpen()) sched.requestFrame();
+      sched.requestFrame();
       return;
     }
-    if (key === '?' ) { openHelp(); return; }
     if (key === 'q' || key === '\u0003') { cleanup(); process.exit(0); }
     const consumed = input.handleKey(key);
     if (consumed) sched.requestFrame();

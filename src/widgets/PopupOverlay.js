@@ -3,7 +3,7 @@ const { Text } = require('./Text');
 const { getTheme } = require('../theme/theme');
 
 class PopupOverlay {
-  constructor({ title = 'Help', body = '', footer = 'Arrows/PgUp/PgDn/Home/End, j/k; Esc or q to close', width = 40, height = 12, style = {}, border = 'box' } = {}) {
+  constructor({ title = 'Help', body = '', footer = 'Arrows/PgUp/PgDn/Home/End, j/k; Esc or q to close', width = 40, height = 12, style = {}, border = 'box', backdrop = false } = {}) {
     this.title = title;
     this.footer = footer;
     this.width = width;
@@ -18,7 +18,7 @@ class PopupOverlay {
       hintFg: t.hint,
     }, style);
     this.scroll = 0;
-    this.backdrop = true;
+    this.backdrop = !!backdrop; // default: no full-screen backdrop; keep background visible
     this._rawBody = String(body || '');
     this._lines = [];
     this._wrapBody();

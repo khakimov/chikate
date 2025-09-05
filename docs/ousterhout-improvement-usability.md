@@ -22,7 +22,7 @@ API Shape (Friendly Surface)
   - `createScreen({ alt=true })` — creates `Screen` and switches to alt screen if requested; auto‑restore on exit.
   - `withApp(fn)` — setup/teardown around a loop; catches errors and restores terminal.
 - Key routing
-  - `onKey('Ctrl+C', quit)`, `onKey(['?', '/'], openHelp)` — string keys normalized; multiple bindings.
+  - `onKey('Ctrl+C', quit)` — string keys normalized; multiple bindings are supported if desired.
   - `Focus.next()`/`Focus.prev()`; `Focus.on(node)`; `Focus.route(key)`; returns boolean consumed.
 - Layout
   - `page = Page.at(2,2).size('100%','100%');`
@@ -45,7 +45,7 @@ Englishy Helpers (Ruby‑ish Flavor)
 - Collections
   - `each(items, (item, i) => …)`; `mapToText(items, row => row.label)` where useful for rendering.
 - Declarative input bindings
-  - `Keys.map({ 'Ctrl+C': quit, '?': openHelp, 'F2|Ctrl+T': toggleThinking })`.
+  - `Keys.map({ 'Ctrl+C': quit, 'F2|Ctrl+T': toggleThinking })`.
 
 Examples (Sketches)
 - Startup
@@ -102,4 +102,3 @@ Testing & DX
 Open Questions
 - Should the fluent builders be separate from the minimal helpers, or layered as thin wrappers? (Leaning wrappers.)
 - How far to push DSL vs. plain JS objects? Aim for tasteful minimalism: readable, not magical.
-

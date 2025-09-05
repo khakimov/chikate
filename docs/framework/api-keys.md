@@ -13,14 +13,13 @@ KeyParser
 - `detach(): void` — removes listener; disables bracketed paste.
 - `on('key', cb)`, `on('paste', cb)` — subscribe to events; returns `off` via `on` return.
 - Event shapes:
-  - Key: `{ type:'key', name:string, seq:string }` e.g., `Up`, `Ctrl+T`, `F2`, `?`.
+  - Key: `{ type:'key', name:string, seq:string }` e.g., `Up`, `Ctrl+T`, `F2`, `/`.
   - Paste: `{ type:'paste', data:string }` (between `ESC[200~` and `ESC[201~`).
 
 Keys Mapper
-- `Keys.map({ 'F2|Ctrl+T': fn, '?|/': fn, 'q|Ctrl+C': fn }) => (keySeq) => boolean`
+- `Keys.map({ 'F2|Ctrl+T': fn, 'q|Ctrl+C': fn }) => (keySeq) => boolean`
 - Turns symbolic names into raw sequences and returns a handler to call with raw key data.
 
 Notes
 - The parser recognizes common arrows, Home/End/Delete, PgUp/PgDn, F2/F3, Tab/Shift+Tab, Backspace, Enter, Ctrl+A..Z, and printable chars.
 - While parsing a paste, all content until the end marker is emitted as one `paste` event.
-

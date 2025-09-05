@@ -56,7 +56,7 @@ function main() {
     const input = new InputField({
       x: outer.x, y: outer.y, width: outer.width, height: 3, title: 'Message',
       placeholder: 'Type a message. Use / for commands. Enter to submit. Esc clears.',
-      hint: 'F2/Ctrl+T toggle thinking • ? for help • q quits',
+      hint: 'F2/Ctrl+T toggle thinking • /help for help • q quits',
       readOnly: false,
       allowNewlines: true,
       autoResize: true,
@@ -69,7 +69,7 @@ function main() {
       onSubmit: (val) => {
         const trimmed = String(val || '').trim();
         if (!trimmed) return;
-        if (trimmed === '/help' || trimmed === '?') { openHelp(); input.setValue(''); sched.requestFrame(); return; }
+        if (trimmed === '/help') { openHelp(); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed === '/clear') { history.length = 0; input.setValue(''); sched.requestFrame(); return; }
         if (trimmed === '/demo') { runDemo(); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/think')) { toggleThinking(); input.setValue(''); sched.requestFrame(); return; }
@@ -153,7 +153,6 @@ function main() {
     // Key bindings (normalized)
     keys.on('key', (evt) => {
       if (overlays.isOpen()) return;
-      if (evt.name === '?' || evt.name === '/') { openHelp(); return; }
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
@@ -163,7 +162,12 @@ function main() {
     });
     // Raw input for editing
     stdin.on('data', (key) => {
-      if (overlays.isOpen()) { overlays.handleKey(key); if (!overlays.isOpen()) sched.requestFrame(); return; }
+      if (overlays.isOpen()) {
+        const used = overlays.handleKey(key);
+        // Repaint to reflect scroll or content changes while popup remains open
+        sched.requestFrame();
+        return;
+      }
       let consumed = focus.handleKey(key);
       if (!consumed) {
         const cur = focus.current();
@@ -244,7 +248,7 @@ function main() {
       say('History view: scroll with Up/Down or PgUp/PgDn. Try it now; timestamps are on.');
 
       // Wrap up
-      timers.after(t0, () => pushU('Thanks! Type /help or press ? to explore.'));
+      timers.after(t0, () => pushU('Thanks! Type /help to explore.'));
       timers.after(t0 + 500, () => { demoRunning = false; });
     }
 

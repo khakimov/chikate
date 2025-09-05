@@ -84,7 +84,7 @@ v4 — PopupOverlay + Scrolling + Shortcuts (1–2 days)
   - Overlay stack with topmost input interception; close/cancel shortcuts.
   - Scroll keys: Up/Down, PgUp/PgDn, Home/End, j/k.
 - Acceptance:
-  - “?” or /help opens the popup; scrolling works; input is blocked while open.
+- `/help` opens the popup; scrolling works; input is blocked while open.
   - Implemented: `src/widgets/PopupOverlay.js`, `src/overlay/OverlayStack.js`:
     - Full-screen dim backdrop; interior fill masks underlying UI.
     - Border modes: `border: 'box' | 'none'`; borderless draws bold inline title.
@@ -162,8 +162,8 @@ Open Questions
 - History model: keep StatusManager separate (current) or unify with history entries with special renderers?
 
 Usage Notes (Demos)
-- App: `npm run demo:app` — “?” or `/help` opens PopupOverlay; Shift+B toggles popup border; Shift+T cycles themes (legacy/dark/light); F2/Ctrl+T and F3/Ctrl+Y toggle statuses.
-- Ticker: `npm run demo:ticker` — Shift+T toggles themes; “?” opens help.
+- App: `npm run demo:app` — `/help` opens PopupOverlay; Shift+B toggles popup border; Shift+T cycles themes (legacy/dark/light); F2/Ctrl+T and F3/Ctrl+Y toggle statuses.
+- Ticker: `npm run demo:ticker` — Shift+T toggles themes; `/help` opens help in demos that support it.
 - Input: `npm run demo:input` (read‑only), `npm run demo:input:interactive`, `npm run demo:input:multiline`.
 
 Changelog

@@ -29,7 +29,8 @@ InputField
 - Methods: `setValue(v)`, `measureHeightForWidth(w)`, `desiredRowsForWidth(w)`, `getCursorScreenPos()`, `handleKey(key): boolean`, `paint(screen)`.
 
 PopupOverlay
-- `new PopupOverlay({ title='Help', body, footer, width=40, height=12, style?, border='box'|'none' })`
+- `new PopupOverlay({ title='Help', body, footer, width=40, height=12, style?, border='box'|'none', backdrop=false })`
+  - `backdrop`: if true, draws a dim full‑screen backdrop behind the popup. Defaults to false so background content remains visible.
 - Methods: `handleKey(key): boolean`, `onRequestClose(fn)`, `paint(screen)`, `paintBackdrop(screen)`.
 
 ThinkingIndicator

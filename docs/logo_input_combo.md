@@ -36,7 +36,7 @@ History flattening
 - Bottom‑align this flattened list into the history region (so it feels like a chat window).
 
 Keyboard
-- Help popup: `?` to toggle, or `/help` and Enter.
+- Help popup: type `/help` and press Enter.
 - Thinking toggle: F2 (ESC O Q or ESC [ 12 ~), Ctrl+T (`\u0014`), Ctrl+Shift+T variants (where terminals send them), or `/think`.
 - Suggestions: Up/Down to navigate, Enter/Tab to accept, Esc to close.
 - Input navigation: Left/Right; Backspace deletes; Enter submits.
@@ -77,4 +77,3 @@ How to extend
 - Style history by role: prefix user/system/thinking lines differently, add color accents.
 - Virtualize history: keep all messages in memory but render only the last window worth of lines.
 - Add a minimal widget abstraction (see `docs/tui-framework.md`) to structure layouts like rows/columns/pads and enable composability.
-

@@ -1,6 +1,6 @@
 {
   "name": "chikate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Chikate – a small TUI library with a deterministic renderer and friendly APIs.",
   "main": "src/index.js",
   "exports": {

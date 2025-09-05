@@ -11,4 +11,8 @@ All notable changes to this project will be documented here.
 - Unicode‑aware wrapping and measurement utilities.
 - Themes with presets (`dark`, `light`, `legacy`) and helpers to switch/override.
 - Examples and guided demo; docs and packaging plan.
+## 0.1.1 — Fixes and behavior tweaks
+- Popup backdrop is now opt-in (default false) so content stays visible behind popups.
+- Repaint overlays on every key while open (scroll updates immediately).
+- Help trigger simplified to `/help` (removed `?` binding); slash now goes to input for suggestions.
 
