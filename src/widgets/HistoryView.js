@@ -6,7 +6,7 @@ const { wrapToWidth, measureWidth } = require('../util/wrap');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1 } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -30,6 +30,9 @@ class HistoryView {
     };
     this._lastItemCount = this.items.length;
     this._newCount = 0;
+    this.userBar = !!userBar;
+    this.userBarChar = String(userBarChar || '┃');
+    this.userBarPad = Math.max(0, userBarPad | 0);
   }
 
   setItems(items) {
@@ -99,6 +102,12 @@ class HistoryView {
       const L = lines[i];
       // Optional timestamp segment in hint color
       let xCol = innerX;
+      // Draw optional user bar (for all wrapped lines of user messages)
+      if (L.userBar && this.userBar) {
+        const barFg = L.barFg || (this.style && this.style.userBarFg) || getTheme().historyUser || getTheme().border;
+        Text(screen, { x: xCol, y: row, text: this.userBarChar, style: { fg: barFg } });
+        xCol += this.userBarChar.length + this.userBarPad;
+      }
       if (L.tsLen && L.tsLen > 0) {
         // Draw timestamp segment in hint color, then the rest
         const tsText = L.text.slice(0, L.tsLen);
@@ -117,11 +126,6 @@ class HistoryView {
           if (rest) Text(screen, { x: xCol, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
         }
       } else {
-        // Draw optional user bar on first wrapped line of user messages
-        if (L.userBar) {
-          Text(screen, { x: xCol, y: row, text: '|', style: { fg: t.historyUser } });
-          xCol += 2; // bar + space
-        }
         if (L.senderLen && L.senderLen > 0) {
           const sender = L.text.slice(0, L.senderLen);
           const remaining = L.text.slice(L.senderLen);
@@ -194,7 +198,7 @@ class HistoryView {
         const line = wrapped[i];
         const tsLen = (i === 0) ? ts.length : 0;
         const senderLen = (i === 0) ? sender.length : 0;
-        out.push({ text: line, fg, tsLen, senderLen, userBar: userBar && i === 0 });
+        out.push({ text: line, fg, tsLen, senderLen, userBar: userBar, barFg: m && m.userBarFg });
       }
       // insert visual gap between messages to improve readability
       for (let g = 0; g < this.itemGap; g++) out.push({ text: '', fg, tsLen: 0, userBar: false });
