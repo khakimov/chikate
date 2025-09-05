@@ -302,7 +302,10 @@ class InputField {
 
     const auto = this.cfg.suggestionSubmitOnPick;
     const isCommand = !!this.cfg.suggestionPrefix && token.startsWith(this.cfg.suggestionPrefix);
-    const shouldSubmit = (auto === true) || (auto === 'auto' && isCommand);
+    // Do not auto-submit if suggestion appears to require arguments (e.g., '/selection on')
+    const rawTail = raw.slice(token.length).trim();
+    const requiresArgs = isCommand && rawTail.length > 0;
+    const shouldSubmit = !requiresArgs && ((auto === true) || (auto === 'auto' && isCommand));
     if (shouldSubmit && typeof this.cfg.onSubmit === 'function') {
       // Submit without leaving the command text in the input
       this.value = '';
