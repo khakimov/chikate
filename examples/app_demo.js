@@ -33,7 +33,7 @@ function main() {
 
     // History + logo
     const history = [];
-    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1 });
+    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2 });
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
 
@@ -49,6 +49,9 @@ function main() {
     // Commands
     const commands = [
       { text: '/help', desc: 'Open help popup' },
+      { text: '/status <label>', desc: 'Show a status banner with label' },
+      { text: '/status off', desc: 'Close dynamic statuses' },
+      { text: '/scene <name>', desc: 'Set current scene' },
       { text: '/think', desc: 'Toggle thinking' },
       { text: '/typing', desc: 'Toggle typing' },
       { text: '/demo', desc: 'Run interactive demo' },
@@ -82,6 +85,20 @@ function main() {
         const trimmed = String(val || '').trim();
         if (!trimmed) return;
         if (trimmed === '/help') { openHelp(); input.setValue(''); sched.requestFrame(); return; }
+        if (trimmed.startsWith('/status ')) {
+          const arg = trimmed.slice('/status '.length).trim();
+          if (!arg || arg.toLowerCase() === 'off') {
+            const active = statuses.getActive();
+            for (const e of active) { if (e.key.startsWith('dyn:')) statuses.close(e.key); }
+          } else {
+            const key = `dyn:${arg.toLowerCase()}`;
+            if (!statuses.isOpen(key)) {
+              const ind = new ThinkingIndicator({ text: arg, animateColors: true });
+              statuses.add(key, ind, { label: arg }); ind.start(); ind.setOpen(true); statuses.open(key); ensureAnimTicker();
+            } else { statuses.close(key); }
+          }
+          input.setValue(''); sched.requestFrame(); return; }
+        if (trimmed.startsWith('/scene ')) { const name = trimmed.slice('/scene '.length).trim(); if (name) history.push({ who: 'status', text: `Scene: ${name}`, ts: Date.now() }); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed === '/clear') { history.length = 0; input.setValue(''); sched.requestFrame(); return; }
         if (trimmed === '/demo') { runDemo(); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/think')) { toggleThinking(); input.setValue(''); sched.requestFrame(); return; }
@@ -127,7 +144,7 @@ function main() {
         `- Thinking and Typing show above input; they can overlap and stack.\n` +
         `- /help, /think, /typing, /clear commands.\n` +
         `- F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n\n` + Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
-      const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder });
+      const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder, style: { style: 'rounded', borderFooter: 'F1 Help', borderFooterAlign: 'right', borderFooterPosition: 'top' } });
       popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
       overlays.push(popup);
       sched.requestFrame();

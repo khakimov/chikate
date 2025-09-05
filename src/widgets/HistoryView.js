@@ -6,7 +6,7 @@ const { wrapToWidth, measureWidth } = require('../util/wrap');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1 } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -20,6 +20,14 @@ class HistoryView {
     this.anchorBottom = !!anchorBottom; // if true, render content anchored to bottom of rect
     this.itemGap = Math.max(0, itemGap | 0); // blank lines between messages for readability
     this._anchor = !!anchorBottom; // when true, keep pinned to end on new content
+    this.paddingX = Math.max(0, paddingX | 0);
+    this.showSender = !!showSender;
+    this.senderFormat = typeof senderFormat === 'function' ? senderFormat : (who) => {
+      if (who === 'you') return 'You';
+      if (who === 'assistant') return 'Assistant';
+      if (who === 'status') return 'Status';
+      return String(who || '').trim() || 'User';
+    };
     this._lastItemCount = this.items.length;
     this._newCount = 0;
   }
@@ -71,10 +79,13 @@ class HistoryView {
     const t = getTheme();
     const showBorder = this.border !== 'none';
     if (showBorder) {
-      Box(screen, { x, y, width, height, title: this.title, style: { borderFg: t.border, titleFg: t.title, titleAttrs: t.titleAttrs } });
+      Box(screen, { x, y, width, height, title: this.title, style: { borderFg: t.border, titleFg: t.title, titleAttrs: t.titleAttrs, style: (this.style && this.style.style), borderFooter: this.style && this.style.borderFooter, borderFooterAlign: this.style && this.style.borderFooterAlign, borderFooterPosition: this.style && this.style.borderFooterPosition, hintFg: t.hint } });
     }
     const pad = showBorder ? 2 : 0;
-    const innerX = x + pad, innerY = y + (showBorder ? 1 : 0), innerW = width - pad * 2, innerH = height - (showBorder ? 2 : 0);
+    const innerX = x + pad + this.paddingX;
+    const innerY = y + (showBorder ? 1 : 0);
+    const innerW = Math.max(1, width - pad * 2 - this.paddingX * 2);
+    const innerH = height - (showBorder ? 2 : 0);
     const lines = this._flattenLines(innerW);
     const total = lines.length;
     const maxTop = Math.max(0, total - innerH);
@@ -93,14 +104,32 @@ class HistoryView {
         const t = getTheme();
         Text(screen, { x: xCol, y: row, text: tsText, style: { fg: t.hint, maxWidth: innerW } });
         xCol += tsText.length;
-        if (rest) Text(screen, { x: xCol, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        if (L.senderLen && L.senderLen > 0) {
+          const sender = rest.slice(0, L.senderLen);
+          const remaining = rest.slice(L.senderLen);
+          const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
+          Text(screen, { x: xCol, y: row, text: sender, style: { fg: senderFg, maxWidth: innerW - (xCol - innerX) } });
+          xCol += sender.length;
+          if (remaining) Text(screen, { x: xCol, y: row, text: remaining, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        } else {
+          if (rest) Text(screen, { x: xCol, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        }
       } else {
         // Draw optional user bar on first wrapped line of user messages
         if (L.userBar) {
           Text(screen, { x: xCol, y: row, text: '|', style: { fg: t.historyUser } });
           xCol += 2; // bar + space
         }
-        Text(screen, { x: xCol, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        if (L.senderLen && L.senderLen > 0) {
+          const sender = L.text.slice(0, L.senderLen);
+          const remaining = L.text.slice(L.senderLen);
+          const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
+          Text(screen, { x: xCol, y: row, text: sender, style: { fg: senderFg, maxWidth: innerW - (xCol - innerX) } });
+          xCol += sender.length;
+          if (remaining) Text(screen, { x: xCol, y: row, text: remaining, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        } else {
+          Text(screen, { x: xCol, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+        }
       }
     }
 
@@ -156,12 +185,14 @@ class HistoryView {
       const fg = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : t.historyUser;
       const ts = this.showTimestamps ? this._formatTs(m.ts) + ' ' : '';
       const userBar = role === 'you';
-      const full = ts + (m.text || '');
+      const sender = this.showSender ? (this.senderFormat(role) + ': ') : '';
+      const full = ts + sender + (m.text || '');
       const wrapped = wrapToWidth(full, innerW);
       for (let i = 0; i < wrapped.length; i++) {
         const line = wrapped[i];
         const tsLen = (i === 0) ? ts.length : 0;
-        out.push({ text: line, fg, tsLen, userBar: userBar && i === 0 });
+        const senderLen = (i === 0) ? sender.length : 0;
+        out.push({ text: line, fg, tsLen, senderLen, userBar: userBar && i === 0 });
       }
       // insert visual gap between messages to improve readability
       for (let g = 0; g < this.itemGap; g++) out.push({ text: '', fg, tsLen: 0, userBar: false });

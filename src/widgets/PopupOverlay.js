@@ -16,6 +16,11 @@ class PopupOverlay {
       titleAttrs: t.titleAttrs,
       fg: t.fg,
       hintFg: t.hint,
+      // shared style contract keys (optional)
+      style: style && style.style,
+      borderFooter: style && style.borderFooter,
+      borderFooterAlign: style && style.borderFooterAlign,
+      borderFooterPosition: style && style.borderFooterPosition,
     }, style);
     this.scroll = 0;
     this.backdrop = !!backdrop; // default: no full-screen backdrop; keep background visible
@@ -91,7 +96,17 @@ class PopupOverlay {
     const t = getTheme();
     const showBorder = this.border !== 'none';
     if (showBorder) {
-      Box(screen, { x, y, width: w, height: h, title: this.title, style: { borderFg: this.style.borderFg, borderAttrs: t.borderAttrs, titleFg: this.style.titleFg, titleAttrs: this.style.titleAttrs } });
+      Box(screen, { x, y, width: w, height: h, title: this.title, style: {
+        borderFg: this.style.borderFg,
+        borderAttrs: t.borderAttrs,
+        titleFg: this.style.titleFg,
+        titleAttrs: this.style.titleAttrs,
+        style: this.style.style,
+        borderFooter: this.style.borderFooter,
+        borderFooterAlign: this.style.borderFooterAlign,
+        borderFooterPosition: this.style.borderFooterPosition,
+        hintFg: this.style.hintFg,
+      } });
     }
 
     // Fill interior to fully cover underlying content (dim shading)

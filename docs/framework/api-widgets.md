@@ -2,6 +2,7 @@ Title: API — Widgets
 
 Overview
 - Stateless helpers and small stateful widgets used by the demos.
+ - All widgets support the standard style options in `docs/style-system.md` (borders, embedded footer labels, theme colors).
 
 Modules
 - Box: `src/widgets/Box.js` — `Box(screen, { x, y, width, height, title?, style? })`
