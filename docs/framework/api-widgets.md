@@ -36,9 +36,14 @@ InputField
 - Suggestions: items may be strings or `{ text, label? }`. `label` is shown; `text` is inserted on accept. If `suggestionSubmitOnPick` is 'auto' (default), a picked token that starts with the prefix (e.g., `/help — …`) submits immediately by calling `onSubmit('/help')`.
 
 HistoryView
-- Options: `{ items, showTimestamps=false, title='History', style, maxItems=1000, timestampMode='time', showSeconds=false, border='box'|'none', anchorBottom=false, itemGap=1 }`.
-- `border='none'` removes the frame (clean feed). `anchorBottom=true` paints from the bottom up. `itemGap` inserts blank lines between messages.
-- Styling: user messages (`who: 'you'`) draw a green leading bar `|` and green text on the first wrapped line.
+- Options: `{ items, showTimestamps=false, title='History', style, maxItems=1000, timestampMode='time', showSeconds=false, border='box'|'none', anchorBottom=false, itemGap=1, paddingX=2, showSender=false, senderFormat?, userBar=true, userBarChar='┃', userBarPad=1 }`.
+- Layout: `border='none'` removes the frame (clean feed). `anchorBottom=true` paints from the bottom up. `itemGap` inserts blank lines between messages. `paddingX` adjusts horizontal padding.
+- Sender label: `showSender` prints a sender label (You/Assistant/Status by default via `senderFormat(who)`), styled with `style.senderFg`.
+- User bar: For `who: 'you'`, draws a colorful full-height leading bar on all wrapped lines.
+  - `userBar`: enable/disable.
+  - `userBarChar`: choose the glyph (default '┃').
+  - `userBarPad`: spaces after the bar.
+  - Colors: use `style.userBarFg` for a default color, or set `userBarFg` on individual items to override. Falls back to theme (user color, then border) when not provided.
 
 PopupOverlay
 - `new PopupOverlay({ title='Help', body, footer, width=40, height=12, style?, border='box'|'none', backdrop=false })`
