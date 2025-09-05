@@ -379,6 +379,11 @@ function main() {
         sched.requestFrame();
         return;
       }
+      // While suggestions are open, route Tab directly to the input (don't change focus)
+      if (key === '\t' && input.suggestOpen) {
+        const used = input.handleKey(key);
+        if (used) { sched.requestFrame(); return; }
+      }
       // Prefer history scrolling for PgUp/PgDn regardless of focus
       if (key === '\u001b[5~' || key === '\u001b[6~') {
         const sc = historyView.handleKey(key);
