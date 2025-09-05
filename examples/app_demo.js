@@ -489,7 +489,28 @@ function main() {
       }
     });
 
-  }, { loop: false, enableMouse: false });
+    // Zoned selection mode toggle: Shift+S toggles app-driven selection with mouse
+    let zonedSelect = false;
+    // Default: enable mouse in parser but keep it off so native selection works
+    try { keys.setMouseEnabled(false); } catch {}
+
+    keys.on('key', (evt) => {
+      // Toggle zoned selection
+      if (evt.name === 'S') {
+        zonedSelect = !zonedSelect;
+        try { keys.setMouseEnabled(zonedSelect); } catch {}
+        return;
+      }
+      // Route mouse presses to zones when zoned selection is on
+      if (zonedSelect && (evt.name === 'MouseDown' || evt.name === 'MouseUp')) {
+        if (overlays.isOpen()) return;
+        const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
+        if (within(histBox)) { if (historyView.handleMouse(evt)) sched.requestFrame(); return; }
+        if (within(inputBox)) { if (input.handleMouse(evt)) sched.requestFrame(); return; }
+      }
+    });
+
+  }, { loop: false, enableMouse: true });
 }
 
 main();
