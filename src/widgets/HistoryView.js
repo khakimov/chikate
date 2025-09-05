@@ -6,7 +6,7 @@ const { wrapToWidth, measureWidth } = require('../util/wrap');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1 } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1, barFor = undefined, barChar = undefined, barPad = undefined } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -30,9 +30,19 @@ class HistoryView {
     };
     this._lastItemCount = this.items.length;
     this._newCount = 0;
-    this.userBar = !!userBar;
-    this.userBarChar = String(userBarChar || '┃');
-    this.userBarPad = Math.max(0, userBarPad | 0);
+    // Bar configuration
+    // Roles to draw bars for: default ['you']; allow 'all' or array or string role names
+    let roles = new Set(['you']);
+    if (barFor) {
+      if (barFor === 'all') roles = new Set(['you','assistant','status']);
+      else if (Array.isArray(barFor)) roles = new Set(barFor);
+      else if (typeof barFor === 'string') roles = new Set([barFor]);
+    }
+    // Back-compat: userBar toggles 'you'
+    if (userBar === false) roles.delete('you');
+    this.barRoles = roles;
+    this.userBarChar = String((barChar != null ? barChar : userBarChar) || '┃');
+    this.userBarPad = Math.max(0, (barPad != null ? barPad : userBarPad) | 0);
   }
 
   setItems(items) {
@@ -102,8 +112,8 @@ class HistoryView {
       const L = lines[i];
       // Optional timestamp segment in hint color
       let xCol = innerX;
-      // Draw optional user bar (for all wrapped lines of user messages)
-      if (L.userBar && this.userBar) {
+      // Draw optional role bar (for all wrapped lines of the message)
+      if (L.bar) {
         const barFg = L.barFg || (this.style && this.style.userBarFg) || getTheme().historyUser || getTheme().border;
         Text(screen, { x: xCol, y: row, text: this.userBarChar, style: { fg: barFg } });
         xCol += this.userBarChar.length + this.userBarPad;
@@ -190,7 +200,7 @@ class HistoryView {
       const role = (m && m.who) || 'you';
       const fg = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : t.historyUser;
       const ts = this.showTimestamps ? this._formatTs(m.ts) + ' ' : '';
-      const userBar = role === 'you';
+      const wantBar = (typeof m?.bar === 'boolean') ? !!m.bar : this.barRoles.has(role);
       const sender = this.showSender ? (this.senderFormat(role) + ': ') : '';
       const full = ts + sender + (m.text || '');
       const wrapped = wrapToWidth(full, innerW);
@@ -198,7 +208,11 @@ class HistoryView {
         const line = wrapped[i];
         const tsLen = (i === 0) ? ts.length : 0;
         const senderLen = (i === 0) ? sender.length : 0;
-        out.push({ text: line, fg, tsLen, senderLen, userBar: userBar, barFg: m && m.userBarFg });
+        // Resolve bar color: per-item override, style per-role, theme fallback
+        const styleBar = (this.style && (this.style.barFgByRole?.[role] || (role==='you'?this.style.userBarFg: this.style[role+'BarFg']))) || null;
+        const fallback = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : (t.historyUser || t.border);
+        const barFg = (m && (m.barFg || m.userBarFg)) || styleBar || fallback;
+        out.push({ text: line, fg, tsLen, senderLen, bar: wantBar, barFg });
       }
       // insert visual gap between messages to improve readability
       for (let g = 0; g < this.itemGap; g++) out.push({ text: '', fg, tsLen: 0, userBar: false });

@@ -33,7 +33,7 @@ function main() {
 
     // History + logo
     const history = [];
-    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2 });
+    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2, barFor: 'all' });
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
     // Fancy ASCII logo (ported from scripts/logo_input_combo.js)
