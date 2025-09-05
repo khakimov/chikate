@@ -33,7 +33,7 @@ function main() {
 
     // History + logo
     const history = [];
-    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2, barFor: 'all' });
+    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2, barFor: 'all', selectionEnabled: true });
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
     // Fancy ASCII logo (ported from scripts/logo_input_combo.js)
@@ -208,7 +208,9 @@ function main() {
         `- Startup logo hides on first message.\n` +
         `- Thinking and Typing show above input; they can overlap and stack.\n` +
         `- Commands: /help, /logo, /think, /typing, /clear.\n` +
-        `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n\n` + Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
+        `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n` +
+        `- Selection: F4 to start selecting in history; use arrows/PgUp/PgDn/Home/End to expand; Esc exits; Tab switches focus.\n\n` +
+        Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
       const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder, style: { style: 'rounded', borderFooter: 'F1 Help', borderFooterAlign: 'right', borderFooterPosition: 'top' } });
       popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
       overlays.push(popup);
@@ -355,6 +357,7 @@ function main() {
       }
       if (overlays.isOpen()) return;
       if (evt.name === 'F1') { openHelp(); return; }
+      if (evt.name === 'F4') { focus.setFocus(historyNode); historyView.handleKey('v'); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
