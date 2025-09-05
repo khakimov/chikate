@@ -4,9 +4,10 @@
 //  - paste: { type:'paste', data:string }
 
 class KeyParser {
-  constructor({ stdout = process.stdout, enableBracketedPaste = true } = {}) {
+  constructor({ stdout = process.stdout, enableBracketedPaste = true, enableMouse = true } = {}) {
     this.stdout = stdout;
     this.enableBP = enableBracketedPaste;
+    this.enableMouse = enableMouse;
     this._handlers = { key: new Set(), paste: new Set() };
     this._onData = this._onData.bind(this);
     this._attached = null;
@@ -19,6 +20,7 @@ class KeyParser {
     this._attached = stdin;
     stdin.on('data', this._onData);
     if (this.enableBP) this._enableBracketedPaste();
+    if (this.enableMouse) this._enableMouse();
     return () => this.detach();
   }
 
@@ -27,6 +29,7 @@ class KeyParser {
     try { this._attached.off('data', this._onData); } catch {}
     this._attached = null;
     if (this.enableBP) this._disableBracketedPaste();
+    if (this.enableMouse) this._disableMouse();
   }
 
   on(type, cb) { if (this._handlers[type]) this._handlers[type].add(cb); return () => this.off(type, cb); }
@@ -83,6 +86,24 @@ class KeyParser {
       if (ch === '\u001b') {
         // Try known CSI sequences
         const rest = s.slice(i);
+        // Mouse (SGR) \x1b[<btn;x;y(M|m)
+        const mm = rest.match(/^\u001b\x5b<(\d+);(\d+);(\d+)([Mm])/);
+        if (mm) {
+          const btn = parseInt(mm[1], 10);
+          if (btn === 64) events.push({ type: 'key', name: 'WheelUp', seq: mm[0] });
+          else if (btn === 65) events.push({ type: 'key', name: 'WheelDown', seq: mm[0] });
+          // Advance past the full mouse sequence
+          i += mm[0].length - 1;
+          continue;
+        }
+        // Mouse (X10) \x1b[M btn+32, x+32, y+32
+        if (rest.startsWith('\u001b[M') && rest.length >= 6) {
+          const b = rest.charCodeAt(3) - 32;
+          if (b === 64) events.push({ type: 'key', name: 'WheelUp', seq: rest.slice(0, 6) });
+          else if (b === 65) events.push({ type: 'key', name: 'WheelDown', seq: rest.slice(0, 6) });
+          i += 5;
+          continue;
+        }
         const known = [
           ['\u001b[A', 'Up'], ['\u001b[B', 'Down'], ['\u001b[C', 'Right'], ['\u001b[D', 'Left'],
           ['\u001b[H', 'Home'], ['\u001b[F', 'End'], ['\u001b[3~', 'Delete'],
@@ -123,7 +144,19 @@ class KeyParser {
 
   _enableBracketedPaste() { try { this.stdout.write('\u001b[?2004h'); } catch {} }
   _disableBracketedPaste() { try { this.stdout.write('\u001b[?2004l'); } catch {} }
+  _enableMouse() {
+    try {
+      // Enable basic mouse + SGR extended mode
+      this.stdout.write('\u001b[?1000h');
+      this.stdout.write('\u001b[?1006h');
+    } catch {}
+  }
+  _disableMouse() {
+    try {
+      this.stdout.write('\u001b[?1006l');
+      this.stdout.write('\u001b[?1000l');
+    } catch {}
+  }
 }
 
 module.exports = { KeyParser };
-

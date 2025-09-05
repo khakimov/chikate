@@ -17,6 +17,7 @@ All notable changes to this project will be documented here.
 - Help trigger simplified to `/help` (removed `?` binding); slash now goes to input for suggestions.
 - Exit confirmation: press Ctrl+C twice within 1s to exit (removed `q` to quit in examples).
 - Status banners: when using `StatusManager` with `ThinkingIndicator`, set both the status entry open and the widget’s `setOpen(true)` for it to render.
- - HistoryView: added `border='none'`, `anchorBottom`, and `itemGap` options for a clean, bottom‑anchored feed with spacing.
- - InputField: added `borderStyle` config to pick rounded/double/etc. borders.
- - ThinkingIndicator: optional animated color wave (`animateColors`, `palette`, `waveSpeed`, `waveWidth`).
+- HistoryView: added `border='none'`, `anchorBottom`, and `itemGap` options for a clean, bottom‑anchored feed with spacing.
+- InputField: added `borderStyle` config to pick rounded/double/etc. borders.
+- ThinkingIndicator: optional animated color wave (`animateColors`, `palette`, `waveSpeed`, `waveWidth`).
+ - InputField: added `borderFooter` with `borderFooterAlign` and `borderFooterPosition` to draw a label inside the border (e.g., "─ Enter to send ─").

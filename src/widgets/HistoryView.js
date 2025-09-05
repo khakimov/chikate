@@ -19,11 +19,27 @@ class HistoryView {
     this.border = border || 'box'; // 'box' | 'none'
     this.anchorBottom = !!anchorBottom; // if true, render content anchored to bottom of rect
     this.itemGap = Math.max(0, itemGap | 0); // blank lines between messages for readability
+    this._anchor = !!anchorBottom; // when true, keep pinned to end on new content
+    this._lastItemCount = this.items.length;
+    this._newCount = 0;
   }
 
   setItems(items) {
+    // Detect whether we were already viewing the bottom before updating items
+    const innerH = Math.max(0, (this._rect.height | 0) - 2);
+    const prevTotal = Math.max(0, this._flattenLines(Math.max(1, (this._rect.width | 0) - (this.border === 'none' ? 0 : 4))).length);
+    const prevMaxTop = Math.max(0, prevTotal - innerH);
+    const wasAtBottom = this.scroll >= prevMaxTop;
+
     this.items = Array.isArray(items) ? items : [];
     this._capItems();
+    // Track new messages if not at bottom
+    const itemDelta = Math.max(0, this.items.length - this._lastItemCount);
+    if (!this._anchor && !wasAtBottom && itemDelta > 0) this._newCount += itemDelta;
+    this._lastItemCount = this.items.length;
+
+    // If we are anchored or were previously at bottom, pin to end after update
+    if (this.anchorBottom && (this._anchor || wasAtBottom)) { this.scrollToEnd(); this._newCount = 0; }
   }
   push(item) { this.items.push(item); this._capItems(); this.scrollToEnd(); }
   clear() { this.items.length = 0; this.scroll = 0; }
@@ -33,6 +49,7 @@ class HistoryView {
     const lines = this._flattenLines(this._rect.width);
     const maxTop = Math.max(0, lines.length - innerH);
     this.scroll = maxTop;
+    this._anchor = !!this.anchorBottom;
   }
 
   handleKey(key) {
@@ -40,12 +57,12 @@ class HistoryView {
     const total = Math.max(0, this._flattenLines(this._rect.width).length);
     const maxTop = Math.max(0, total - innerH);
     const page = Math.max(1, innerH - 1);
-    if (key === '\u001b[A' || key === 'k') { this.scroll = Math.max(0, this.scroll - 1); return true; }
-    if (key === '\u001b[B' || key === 'j') { this.scroll = Math.min(maxTop, this.scroll + 1); return true; }
-    if (key === '\u001b[5~') { this.scroll = Math.max(0, this.scroll - page); return true; }
-    if (key === '\u001b[6~') { this.scroll = Math.min(maxTop, this.scroll + page); return true; }
-    if (key === '\u001b[H' || key === 'g') { this.scroll = 0; return true; }
-    if (key === '\u001b[F' || key === 'G') { this.scroll = maxTop; return true; }
+    if (key === '\u001b[A' || key === 'k') { this.scroll = Math.max(0, this.scroll - 1); this._anchor = false; return true; }
+    if (key === '\u001b[B' || key === 'j') { this.scroll = Math.min(maxTop, this.scroll + 1); this._anchor = false; return true; }
+    if (key === '\u001b[5~') { this.scroll = Math.max(0, this.scroll - page); this._anchor = false; return true; }
+    if (key === '\u001b[6~') { this.scroll = Math.min(maxTop, this.scroll + page); this._anchor = false; return true; }
+    if (key === '\u001b[H' || key === 'g') { this.scroll = 0; this._anchor = false; return true; }
+    if (key === '\u001b[F' || key === 'G') { this.scroll = maxTop; this._anchor = !!this.anchorBottom; this._newCount = 0; return true; }
     return false;
   }
 
@@ -60,7 +77,8 @@ class HistoryView {
     const innerX = x + pad, innerY = y + (showBorder ? 1 : 0), innerW = width - pad * 2, innerH = height - (showBorder ? 2 : 0);
     const lines = this._flattenLines(innerW);
     const total = lines.length;
-    const start = this.anchorBottom ? Math.max(0, total - innerH) : Math.max(0, Math.min(total, this.scroll));
+    const maxTop = Math.max(0, total - innerH);
+    const start = (this.anchorBottom && this._anchor) ? maxTop : Math.max(0, Math.min(this.scroll, maxTop));
     const end = Math.min(total, start + innerH);
     const visibleCount = Math.max(0, end - start);
     const row0 = this.anchorBottom ? (innerY + Math.max(0, innerH - visibleCount)) : innerY;
@@ -84,6 +102,15 @@ class HistoryView {
         }
         Text(screen, { x: xCol, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
       }
+    }
+
+    // New messages indicator when scrolled up
+    if (!this._anchor && this._newCount > 0 && innerH > 0) {
+      const t2 = getTheme();
+      const label = `\u21E9 ${this._newCount} new`;
+      const lx = innerX + Math.max(0, Math.floor((innerW - label.length) / 2));
+      const ly = innerY + innerH - 1;
+      Text(screen, { x: lx, y: ly, text: label, style: { fg: t2.hint, attrs: 1, maxWidth: innerW } });
     }
   }
 

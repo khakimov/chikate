@@ -56,16 +56,17 @@ function main() {
     ];
 
     // Exit confirmation (double Ctrl+C)
-    const baseHint = 'F2/Ctrl+T toggle thinking • /help for help';
+    const baseHint = 'F1 help • /help command • T theme';
     let exitConfirm = false;
     let exitConfirmTimer = null;
 
     // Input widget
     const input = new InputField({
       x: outer.x, y: outer.y, width: outer.width, height: 3, title: 'Message',
-      placeholder: 'Type a message. Use / for commands. Enter to submit. Esc clears.',
+      placeholder: 'Type your message...',
       hint: baseHint,
       borderStyle: 'rounded',
+      borderFooter: 'Enter to send',
       readOnly: false,
       allowNewlines: true,
       autoResize: true,
@@ -192,6 +193,16 @@ function main() {
 
     // Key bindings (normalized)
     keys.on('key', (evt) => {
+      // Mouse wheel: scroll overlay or history
+      if (evt.name === 'WheelUp' || evt.name === 'WheelDown') {
+        if (overlays.isOpen()) {
+          overlays.handleKey(evt.name === 'WheelUp' ? '\u001b[A' : '\u001b[B');
+          sched.requestFrame();
+          return;
+        }
+        const sc = historyView.handleKey(evt.name === 'WheelUp' ? '\u001b[A' : '\u001b[B');
+        if (sc) { sched.requestFrame(); return; }
+      }
       if (overlays.isOpen()) return;
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
@@ -209,6 +220,11 @@ function main() {
         // Repaint to reflect scroll or content changes while popup remains open
         sched.requestFrame();
         return;
+      }
+      // Prefer history scrolling for PgUp/PgDn regardless of focus
+      if (key === '\u001b[5~' || key === '\u001b[6~') {
+        const sc = historyView.handleKey(key);
+        if (sc) { sched.requestFrame(); return; }
       }
       let consumed = focus.handleKey(key);
       if (!consumed) {
@@ -287,7 +303,7 @@ function main() {
       say('Tip: press Shift+T anytime to change themes.');
 
       // History hint
-      say('History view: scroll with Up/Down or PgUp/PgDn. Try it now; timestamps are on.');
+      say('History view: scroll with Up/Down or PgUp/PgDn.');
 
       // Wrap up
       timers.after(t0, () => pushU('Thanks! Type /help to explore.'));

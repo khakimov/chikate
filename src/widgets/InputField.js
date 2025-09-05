@@ -40,6 +40,9 @@ class InputField {
         suggestSelBg: t.suggestSelBg,
       },
       borderStyle: undefined, // 'rounded' | 'double' | 'heavy' | 'single' | 'none'
+      borderFooter: null,      // string shown embedded in border (e.g., 'Enter to send')
+      borderFooterAlign: 'center', // 'left' | 'center' | 'right'
+      borderFooterPosition: 'bottom', // 'bottom' | 'top'
       ...cfg,
     };
     this.value = String(this.cfg.value || '');
@@ -344,6 +347,50 @@ class InputField {
 
     // Box and content
     Box(screen, { x, y, width: w, height: h, title, style: { borderFg: style.borderFg, borderAttrs: getTheme().borderAttrs, style: this.cfg.borderStyle } });
+    // Optional footer embedded in the border (top or bottom, left/center/right)
+    if (this.cfg.borderFooter && w >= 4 && h >= 2) {
+      const footer = String(this.cfg.borderFooter);
+      const t = getTheme();
+      const pos = (this.cfg.borderFooterPosition || 'bottom');
+      const align = (this.cfg.borderFooterAlign || 'center');
+      // Choose border glyphs based on style
+      const styleName = this.cfg.borderStyle || 'single';
+      const chars = styleName === 'double'
+        ? { h: '═', tl: '╔', tr: '╗', bl: '╚', br: '╝' }
+        : styleName === 'heavy'
+          ? { h: '━', tl: '┏', tr: '┓', bl: '┗', br: '┛' }
+          : styleName === 'rounded'
+            ? { h: '─', tl: '╭', tr: '╮', bl: '╰', br: '╯' }
+            : { h: '─', tl: '┌', tr: '┐', bl: '└', br: '┘' };
+      const yy = pos === 'top' ? y : (y + h - 1);
+      // Redraw selected border baseline to ensure a clean line
+      if (pos === 'top') {
+        screen.setCell(x, yy, chars.tl, style.borderFg, null, t.borderAttrs || 0);
+        for (let i = 1; i < w - 1; i++) screen.setCell(x + i, yy, chars.h, style.borderFg, null, t.borderAttrs || 0);
+        screen.setCell(x + w - 1, yy, chars.tr, style.borderFg, null, t.borderAttrs || 0);
+      } else {
+        screen.setCell(x, yy, chars.bl, style.borderFg, null, t.borderAttrs || 0);
+        for (let i = 1; i < w - 1; i++) screen.setCell(x + i, yy, chars.h, style.borderFg, null, t.borderAttrs || 0);
+        screen.setCell(x + w - 1, yy, chars.br, style.borderFg, null, t.borderAttrs || 0);
+      }
+      // Build label with separators
+      const label = `${chars.h} ${footer} ${chars.h}`;
+      const innerLeft = x + 1;
+      const innerRight = x + w - 2;
+      const interior = Math.max(0, innerRight - innerLeft + 1);
+      const draw = label.slice(0, interior);
+      let sx = innerLeft;
+      if (align === 'center') sx = innerLeft + Math.max(0, Math.floor((interior - draw.length) / 2));
+      else if (align === 'right') sx = innerRight - (draw.length - 1);
+      // Draw the label: border glyph color for dashes, hint color for text
+      for (let i = 0; i < draw.length; i++) {
+        const ch = draw[i];
+        const isDash = (ch === chars.h);
+        const fg = isDash ? style.borderFg : style.hintFg;
+        const attrs = isDash ? (t.borderAttrs || 0) : 0;
+        screen.setCell(sx + i, yy, ch, fg, null, attrs);
+      }
+    }
 
     const hasText = this.value.length > 0;
     const showPlaceholder = !hasText && placeholder;
@@ -366,7 +413,7 @@ class InputField {
       Text(screen, { x: innerX, y: yy, text, style: { fg: color, maxWidth: innerW } });
     }
 
-    // hint below
+    // Bottom bar below the box (controls/help)
     if (hint) {
       const { width: W, height: H } = screen.size();
       const hintY = y + h < H ? y + h : H - 1;

@@ -26,10 +26,13 @@ Text
 InputField
 - Config highlights: `{ x,y,width,height,title,placeholder,hint,readOnly,allowNewlines,submitOnEnter,autoResize,minRows,maxRows,
   suggestionProvider, suggestionPrefix='/', suggestionLimit=5, suggestionBoxWidthRatio=0.6, suggestionInset=1,
-  suggestionUseInputWidth=false, suggestionAlign='left', style, borderStyle }`.
+  suggestionUseInputWidth=false, suggestionAlign='left', style, borderStyle, borderFooter?, borderFooterAlign?, borderFooterPosition? }`.
  - `borderStyle`: 'rounded' | 'double' | 'heavy' | 'single' | 'none'.
+  - `borderFooter`: string drawn inside the border as a label (e.g., `"Enter to send"`).
+  - `borderFooterAlign`: 'left' | 'center' | 'right' (default 'center').
+  - `borderFooterPosition`: 'bottom' | 'top' (default 'bottom').
 - Methods: `setValue(v)`, `measureHeightForWidth(w)`, `desiredRowsForWidth(w)`, `getCursorScreenPos()`, `handleKey(key): boolean`, `paint(screen)`.
- - Suggestions: items may be strings or `{ text, label? }`. `label` is shown; `text` is inserted on accept.
+- Suggestions: items may be strings or `{ text, label? }`. `label` is shown; `text` is inserted on accept.
 
 HistoryView
 - Options: `{ items, showTimestamps=false, title='History', style, maxItems=1000, timestampMode='time', showSeconds=false, border='box'|'none', anchorBottom=false, itemGap=1 }`.
