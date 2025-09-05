@@ -39,6 +39,7 @@ class InputField {
         suggestSelFg: t.suggestSelFg,
         suggestSelBg: t.suggestSelBg,
       },
+      borderStyle: undefined, // 'rounded' | 'double' | 'heavy' | 'single' | 'none'
       ...cfg,
     };
     this.value = String(this.cfg.value || '');
@@ -326,8 +327,8 @@ class InputField {
         const showN = Math.min(this.suggestions.length, maxLines);
         for (let i = 0; i < showN; i++) {
           const item = this.suggestions[i];
-          const text = (typeof item === 'string') ? item : (item && item.text) || '';
-          const trimmed = text.length > interiorW ? text.slice(0, interiorW) : text;
+          const display = (typeof item === 'string') ? item : (item && (item.label || item.text)) || '';
+          const trimmed = display.length > interiorW ? display.slice(0, interiorW) : display;
           const yy = listStartY + i;
           const selected = i === this.suggestIndex;
           const useInvert = !!theme.useInvertSelection;
@@ -342,7 +343,7 @@ class InputField {
     }
 
     // Box and content
-    Box(screen, { x, y, width: w, height: h, title, style: { borderFg: style.borderFg, borderAttrs: getTheme().borderAttrs } });
+    Box(screen, { x, y, width: w, height: h, title, style: { borderFg: style.borderFg, borderAttrs: getTheme().borderAttrs, style: this.cfg.borderStyle } });
 
     const hasText = this.value.length > 0;
     const showPlaceholder = !hasText && placeholder;

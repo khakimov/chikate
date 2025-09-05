@@ -25,12 +25,14 @@ The basics
   - Use `KeyParser` for normalized keys and bracketed paste.
   - Use `FocusManager` to route keys. Tab switches focus; overlays intercept first.
   - Ownership: printable keys go to the focused widget (usually the input). Global shortcuts should be non‑printable (F‑keys, Ctrl combos) and `/commands` handled in `onSubmit`.
+  - Exit: prefer Ctrl+C. The examples use a double‑press window (1s) to prevent accidental exits; avoid binding a plain `q` to quit.
 - Popups
   - Use `OverlayStack`. Topmost overlay blocks input below.
   - `Popup('Help').body(text).open(overlays)`. Default is non‑destructive: background stays visible; set `backdrop: true` to dim.
 - Themes
   - `setTheme('legacy'|'dark'|'light')`, or `cycleTheme()`.
   - Use theme tokens for colors; prefer bold/dim/invert for the legacy look.
+  - Animated status colors require a color theme (Dark/Light); Legacy renders a dim single‑color line.
 
 Avoid flicker
 - Don’t render in a tight loop. Only request frames when something changed.
@@ -40,8 +42,11 @@ Avoid flicker
 Common patterns
 - History
   - Use `HistoryView` to draw scrollable logs: timestamps, role colors, PgUp/PgDn.
+  - For a modern feed, set `border: 'none'`, `anchorBottom: true`, and `itemGap: 1`.
+  - Status banners (Thinking/Typing) are transient UI; avoid logging them to history.
 - Input field
   - `InputField` supports editing, wrap, and a suggestion dropdown above the input.
+  - When suggestions are open, Enter accepts the highlighted suggestion; press Enter again to submit the command.
   - Handle commands in `onSubmit` (e.g., `/help`, `/clear`) instead of binding printable keys globally.
 - Progress
   - `ProgressBar` draws a solid fill bar. For logs, use `renderProgressLine(...)`.

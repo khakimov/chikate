@@ -8,6 +8,7 @@ Modules
 - Text: `src/widgets/Text.js` — `Text(screen, { x, y, text, style? })`
 - Border: `src/widgets/border.js` — `drawBorder(screen, x, y, w, h, { title?, style? })`
 - InputField: `src/widgets/InputField.js` — class `InputField(cfg)`
+- HistoryView: `src/widgets/HistoryView.js` — class `HistoryView(opts)`
 - PopupOverlay: `src/widgets/PopupOverlay.js` — class `PopupOverlay(opts)`
 - ThinkingIndicator: `src/widgets/Thinking.js` — class `ThinkingIndicator(opts)`
 - Logo: `src/widgets/Logo.js` — class `Logo(opts)`
@@ -25,8 +26,15 @@ Text
 InputField
 - Config highlights: `{ x,y,width,height,title,placeholder,hint,readOnly,allowNewlines,submitOnEnter,autoResize,minRows,maxRows,
   suggestionProvider, suggestionPrefix='/', suggestionLimit=5, suggestionBoxWidthRatio=0.6, suggestionInset=1,
-  suggestionUseInputWidth=false, suggestionAlign='left', style }`.
+  suggestionUseInputWidth=false, suggestionAlign='left', style, borderStyle }`.
+ - `borderStyle`: 'rounded' | 'double' | 'heavy' | 'single' | 'none'.
 - Methods: `setValue(v)`, `measureHeightForWidth(w)`, `desiredRowsForWidth(w)`, `getCursorScreenPos()`, `handleKey(key): boolean`, `paint(screen)`.
+ - Suggestions: items may be strings or `{ text, label? }`. `label` is shown; `text` is inserted on accept.
+
+HistoryView
+- Options: `{ items, showTimestamps=false, title='History', style, maxItems=1000, timestampMode='time', showSeconds=false, border='box'|'none', anchorBottom=false, itemGap=1 }`.
+- `border='none'` removes the frame (clean feed). `anchorBottom=true` paints from the bottom up. `itemGap` inserts blank lines between messages.
+- Styling: user messages (`who: 'you'`) draw a green leading bar `|` and green text on the first wrapped line.
 
 PopupOverlay
 - `new PopupOverlay({ title='Help', body, footer, width=40, height=12, style?, border='box'|'none', backdrop=false })`
@@ -34,8 +42,10 @@ PopupOverlay
 - Methods: `handleKey(key): boolean`, `onRequestClose(fn)`, `paint(screen)`, `paintBackdrop(screen)`.
 
 ThinkingIndicator
-- `new ThinkingIndicator({ text='Thinking', frames=[…], interval=80, style? })`
+- `new ThinkingIndicator({ text='Thinking', frames=[…], interval=80, style?, animateColors=true, palette?, waveSpeed?, waveWidth? })`
 - Methods: `start()`, `stop()`, `toggle()`, `setOpen(bool)`, `paint(screen, { x, y, width })`.
+- Animated colors: requires color themes (`statusUseColors: true` e.g., Dark/Light). Legacy theme uses a dim single‑color line.
+- With `StatusManager`, call both `statuses.open('thinking')` and `thinking.setOpen(true)`.
 
 Logo
 - `new Logo({ text='CHIKATE', style? })`

@@ -14,7 +14,8 @@ const { getTheme, setTheme } = require('../src/theme/theme');
 function main() {
   withApp(({ screen, sched, stdin, keys, timers }) => {
     // Theme
-    setTheme('legacy');
+    // Use a color theme so animated status colors are visible
+    setTheme('dark');
 
     // State and systems
     const overlays = new OverlayStack();
@@ -32,16 +33,18 @@ function main() {
 
     // History + logo
     const history = [];
-    const historyView = new HistoryView({ items: history, showTimestamps: true, title: 'History', timestampMode: 'time' });
+    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1 });
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
 
     // Status indicators
     const t = getTheme();
-    const thinking = new ThinkingIndicator({ text: 'Thinking' });
-    statuses.add('thinking', thinking, { label: 'Thinking', onClose: () => { history.push({ who: 'status', text: '[Thinking done]', ts: Date.now() }); } });
-    const typing = new ThinkingIndicator({ text: 'Typing', style: { fg: t.statusTyping } });
-    statuses.add('typing', typing, { label: 'Typing', onClose: () => { history.push({ who: 'status', text: '[Typing done]', ts: Date.now() }); } });
+    const thinking = new ThinkingIndicator({ text: 'Thinking', animateColors: true });
+    statuses.add('thinking', thinking, { label: 'Thinking' });
+    // Warm palette for Typing
+    const warm = [ { r: 255, g: 200, b: 150 }, { r: 255, g: 170, b: 120 }, { r: 255, g: 140, b: 100 }, { r: 255, g: 180, b: 140 } ];
+    const typing = new ThinkingIndicator({ text: 'Typing', animateColors: true, palette: warm });
+    statuses.add('typing', typing, { label: 'Typing' });
 
     // Commands
     const commands = [
@@ -52,11 +55,17 @@ function main() {
       { text: '/clear', desc: 'Clear history' },
     ];
 
+    // Exit confirmation (double Ctrl+C)
+    const baseHint = 'F2/Ctrl+T toggle thinking • /help for help';
+    let exitConfirm = false;
+    let exitConfirmTimer = null;
+
     // Input widget
     const input = new InputField({
       x: outer.x, y: outer.y, width: outer.width, height: 3, title: 'Message',
       placeholder: 'Type a message. Use / for commands. Enter to submit. Esc clears.',
-      hint: 'F2/Ctrl+T toggle thinking • /help for help • q quits',
+      hint: baseHint,
+      borderStyle: 'rounded',
       readOnly: false,
       allowNewlines: true,
       autoResize: true,
@@ -64,7 +73,9 @@ function main() {
       maxRows: 6,
       suggestionProvider: (token) => {
         const q = token.toLowerCase();
-        return commands.filter(c => c.text.toLowerCase().startsWith(q)).map(c => `${c.text} — ${c.desc}`);
+        return commands
+          .filter(c => c.text.toLowerCase().startsWith(q))
+          .map(c => ({ text: c.text, label: `${c.text} — ${c.desc}` }));
       },
       onSubmit: (val) => {
         const trimmed = String(val || '').trim();
@@ -82,10 +93,10 @@ function main() {
         if (!firstMessageSent) { logo.setVisible(false); firstMessageSent = true; }
 
         // Simulated assistant
-        if (!statuses.isOpen('thinking')) { thinking.start(); statuses.open('thinking'); ensureAnimTicker(); }
-        timers.after(400, () => { if (!statuses.isOpen('typing')) { typing.start(); statuses.open('typing'); ensureAnimTicker(); } sched.requestFrame(); });
-        timers.after(1000, () => { thinking.stop(); statuses.close('thinking'); sched.requestFrame(); });
-        timers.after(1600, () => { typing.stop(); statuses.close('typing'); history.push({ who: 'assistant', text: 'Got it! (simulated response)', ts: Date.now() }); sched.requestFrame(); });
+        if (!statuses.isOpen('thinking')) { thinking.start(); thinking.setOpen(true); statuses.open('thinking'); ensureAnimTicker(); }
+        timers.after(400, () => { if (!statuses.isOpen('typing')) { typing.start(); typing.setOpen(true); statuses.open('typing'); ensureAnimTicker(); } sched.requestFrame(); });
+        timers.after(1000, () => { thinking.stop(); thinking.setOpen(false); statuses.close('thinking'); sched.requestFrame(); });
+        timers.after(1600, () => { typing.stop(); typing.setOpen(false); statuses.close('typing'); history.push({ who: 'assistant', text: 'Got it! (simulated response)', ts: Date.now() }); sched.requestFrame(); });
 
         sched.requestFrame();
       },
@@ -98,8 +109,14 @@ function main() {
     focus.setFocus(inputNode);
 
     // Status toggles
-    function toggleThinking() { if (statuses.isOpen('thinking')) { thinking.stop(); statuses.close('thinking'); } else { thinking.start(); statuses.open('thinking'); ensureAnimTicker(); } }
-    function toggleTyping() { if (statuses.isOpen('typing')) { typing.stop(); statuses.close('typing'); } else { typing.start(); statuses.open('typing'); ensureAnimTicker(); } }
+    function toggleThinking() {
+      if (statuses.isOpen('thinking')) { thinking.stop(); thinking.setOpen(false); statuses.close('thinking'); }
+      else { thinking.start(); thinking.setOpen(true); statuses.open('thinking'); ensureAnimTicker(); }
+    }
+    function toggleTyping() {
+      if (statuses.isOpen('typing')) { typing.stop(); typing.setOpen(false); statuses.close('typing'); }
+      else { typing.start(); typing.setOpen(true); statuses.open('typing'); ensureAnimTicker(); }
+    }
 
     // Help
     let popupBorder = 'box';
@@ -139,6 +156,17 @@ function main() {
         sy -= 1; if (sy < 0) break;
       }
       input.paint(screen);
+      // Draw colored Ctrl+C confirmation hint centered below input
+      if (exitConfirm) {
+        const hintY = (inputBox.y + inputHeight) < H ? (inputBox.y + inputHeight) : (H - 1);
+        const full = 'Ctrl+C again to exit';
+        const startX = Math.max(0, inputBox.x + Math.floor((inputBox.width - full.length) / 2));
+        const tcolors = getTheme();
+        // Key segment: Ctrl+C
+        Text(screen, { x: startX, y: hintY, text: 'Ctrl+C', style: { fg: tcolors.title, attrs: tcolors.titleAttrs || 0 } });
+        // Rest:  again to exit
+        Text(screen, { x: startX + 'Ctrl+C'.length, y: hintY, text: ' again to exit', style: { fg: tcolors.hint } });
+      }
       if (!firstMessageSent) {
         const logoY = histBox.y + Math.floor(histBox.height / 2);
         logo.paint(screen, { x: histBox.x + 2, y: logoY, width: histBox.width - 4 });
@@ -150,6 +178,18 @@ function main() {
       screen.endFrame({ cursor: cursor || { x: 0, y: 0 }, showCursor: !!cursor });
     });
 
+    function requestExit() {
+      if (exitConfirm) { process.exit(0); return; }
+      exitConfirm = true;
+      // Hide built-in hint while showing colored Ctrl+C message
+      input.cfg.hint = '';
+      if (exitConfirmTimer) { timers.clear(exitConfirmTimer); exitConfirmTimer = null; }
+      exitConfirmTimer = timers.after(1000, () => {
+        exitConfirm = false; input.cfg.hint = baseHint; sched.requestFrame();
+      });
+      sched.requestFrame();
+    }
+
     // Key bindings (normalized)
     keys.on('key', (evt) => {
       if (overlays.isOpen()) return;
@@ -158,10 +198,12 @@ function main() {
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
       if (evt.name === 'B') { popupBorder = (popupBorder === 'box') ? 'none' : 'box'; openHelp(); return; }
       if (evt.name === 'D') { runDemo(); return; }
-      if (evt.name === 'q' || evt.name === 'Ctrl+C') { process.exit(0); }
+      if (evt.name === 'Ctrl+C') { requestExit(); }
     });
     // Raw input for editing
     stdin.on('data', (key) => {
+      // Allow Ctrl+C to trigger exit confirmation even when an overlay is open
+      if (overlays.isOpen() && key === '\u0003') { requestExit(); return; }
       if (overlays.isOpen()) {
         const used = overlays.handleKey(key);
         // Repaint to reflect scroll or content changes while popup remains open
@@ -227,8 +269,8 @@ function main() {
 
       // Thinking/Typing statuses
       say('Now: transient status banners (Thinking, then Typing). They stack above the input and stop automatically.');
-      act(() => { if (!statuses.isOpen('thinking')) { thinking.start(); statuses.open('thinking'); ensureAnimTicker(); } }, /*dwell*/ 1200);
-      act(() => { if (!statuses.isOpen('typing')) { typing.start(); statuses.open('typing'); ensureAnimTicker(); } }, /*dwell*/ 1600);
+      act(() => { if (!statuses.isOpen('thinking')) { thinking.start(); thinking.setOpen(true); statuses.open('thinking'); ensureAnimTicker(); } }, /*dwell*/ 1200);
+      act(() => { if (!statuses.isOpen('typing')) { typing.start(); typing.setOpen(true); statuses.open('typing'); ensureAnimTicker(); } }, /*dwell*/ 1600);
       act(() => { thinking.stop(); statuses.close('thinking'); });
       act(() => { typing.stop(); statuses.close('typing'); });
 

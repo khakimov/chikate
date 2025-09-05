@@ -50,6 +50,8 @@ withApp(({ screen, sched, stdin, keys, timers }) => {
 
   // Keys: route to input, add to history on submit
   keys.on('key', ev => {
+    // Exit: press Ctrl+C twice within ~1s in examples/app_demo.js.
+    // For quickstarts, you can exit immediately:
     if (ev.name === 'Ctrl+C') return process.exit(0);
     if (input.handleKey(ev.seq)) {
       if (ev.name === 'Enter' && input.value) {
@@ -98,6 +100,9 @@ API stubs live in `docs/framework/*`:
 
 ## Docs
 - Using the framework: `docs/using-the-framework.md`
+  - Exit: press Ctrl+C twice within 1s (examples use a confirmation window).
+  - Help: type `/help` (optionally bind F1); avoid binding `?` globally.
+  - Status: Thinking/Typing appear as transient banners above the input; not logged to history by default.
 - Rendering and resize: `docs/rendering-ideas.md`, `docs/resize.md`
 - Principles: `docs/engineering-principles.md`, `docs/ousterhout-improvement-usability.md`
 - Making a library: `docs/making-library.md`

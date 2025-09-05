@@ -6,7 +6,7 @@ const { wrapToWidth, measureWidth } = require('../util/wrap');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1 } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -16,6 +16,9 @@ class HistoryView {
     this.maxItems = maxItems | 0;
     this.timestampMode = timestampMode; // 'time' | 'datetime' | 'relative'
     this.showSeconds = !!showSeconds;
+    this.border = border || 'box'; // 'box' | 'none'
+    this.anchorBottom = !!anchorBottom; // if true, render content anchored to bottom of rect
+    this.itemGap = Math.max(0, itemGap | 0); // blank lines between messages for readability
   }
 
   setItems(items) {
@@ -49,22 +52,37 @@ class HistoryView {
   paint(screen, { x, y, width, height }) {
     this._rect = { x, y, width, height };
     const t = getTheme();
-    Box(screen, { x, y, width, height, title: this.title, style: { borderFg: t.border, titleFg: t.title, titleAttrs: t.titleAttrs } });
-    const innerX = x + 2, innerY = y + 1, innerW = width - 4, innerH = height - 2;
-    const lines = this._flattenLines(width);
-    const start = Math.max(0, Math.min(lines.length, this.scroll));
-    const end = Math.min(lines.length, start + innerH);
-    for (let row = innerY, i = start; i < end; i++, row++) {
+    const showBorder = this.border !== 'none';
+    if (showBorder) {
+      Box(screen, { x, y, width, height, title: this.title, style: { borderFg: t.border, titleFg: t.title, titleAttrs: t.titleAttrs } });
+    }
+    const pad = showBorder ? 2 : 0;
+    const innerX = x + pad, innerY = y + (showBorder ? 1 : 0), innerW = width - pad * 2, innerH = height - (showBorder ? 2 : 0);
+    const lines = this._flattenLines(innerW);
+    const total = lines.length;
+    const start = this.anchorBottom ? Math.max(0, total - innerH) : Math.max(0, Math.min(total, this.scroll));
+    const end = Math.min(total, start + innerH);
+    const visibleCount = Math.max(0, end - start);
+    const row0 = this.anchorBottom ? (innerY + Math.max(0, innerH - visibleCount)) : innerY;
+    for (let row = row0, i = start; i < end; i++, row++) {
       const L = lines[i];
+      // Optional timestamp segment in hint color
+      let xCol = innerX;
       if (L.tsLen && L.tsLen > 0) {
         // Draw timestamp segment in hint color, then the rest
         const tsText = L.text.slice(0, L.tsLen);
         const rest = L.text.slice(L.tsLen);
         const t = getTheme();
-        Text(screen, { x: innerX, y: row, text: tsText, style: { fg: t.hint, maxWidth: innerW } });
-        if (rest) Text(screen, { x: innerX + tsText.length, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - tsText.length } });
+        Text(screen, { x: xCol, y: row, text: tsText, style: { fg: t.hint, maxWidth: innerW } });
+        xCol += tsText.length;
+        if (rest) Text(screen, { x: xCol, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
       } else {
-        Text(screen, { x: innerX, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW } });
+        // Draw optional user bar on first wrapped line of user messages
+        if (L.userBar) {
+          Text(screen, { x: xCol, y: row, text: '|', style: { fg: t.historyUser } });
+          xCol += 2; // bar + space
+        }
+        Text(screen, { x: xCol, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
       }
     }
   }
@@ -104,22 +122,22 @@ class HistoryView {
 
   _flattenLines(totalWidth) {
     const t = getTheme();
-    const innerW = Math.max(1, (totalWidth | 0) - 4);
+    const innerW = Math.max(1, (totalWidth | 0));
     const out = [];
     for (const m of this.items) {
       const role = (m && m.who) || 'you';
       const fg = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : t.historyUser;
       const ts = this.showTimestamps ? this._formatTs(m.ts) + ' ' : '';
-      const whoPrefix = (role === 'status') ? '' : (role + ': ');
-      const prefix = ts + whoPrefix;
-      const full = prefix + (m.text || '');
+      const userBar = role === 'you';
+      const full = ts + (m.text || '');
       const wrapped = wrapToWidth(full, innerW);
-      const pad = ' '.repeat(prefix.length);
       for (let i = 0; i < wrapped.length; i++) {
-        const line = (i === 0) ? wrapped[i] : (wrapped[i].length >= prefix.length ? pad + wrapped[i].slice(prefix.length) : wrapped[i]);
+        const line = wrapped[i];
         const tsLen = (i === 0) ? ts.length : 0;
-        out.push({ text: line, fg, tsLen });
+        out.push({ text: line, fg, tsLen, userBar: userBar && i === 0 });
       }
+      // insert visual gap between messages to improve readability
+      for (let g = 0; g < this.itemGap; g++) out.push({ text: '', fg, tsLen: 0, userBar: false });
     }
     return out;
   }
