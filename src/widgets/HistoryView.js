@@ -6,7 +6,7 @@ const { wrapToWidth, measureWidth } = require('../util/wrap');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1, barFor = undefined, barChar = undefined, barPad = undefined } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1, barFor = undefined, barChar = undefined, barPad = undefined, selectionEnabled = true } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -43,6 +43,12 @@ class HistoryView {
     this.barRoles = roles;
     this.userBarChar = String((barChar != null ? barChar : userBarChar) || '┃');
     this.userBarPad = Math.max(0, (barPad != null ? barPad : userBarPad) | 0);
+    // Selection state
+    this.selectionEnabled = !!selectionEnabled;
+    this.selectionActive = false;
+    this.selAnchor = null; // { line, col }
+    this.selCursor = null; // { line, col }
+    this._colPref = 0;
   }
 
   setItems(items) {
@@ -78,6 +84,66 @@ class HistoryView {
     const total = Math.max(0, this._flattenLines(this._rect.width).length);
     const maxTop = Math.max(0, total - innerH);
     const page = Math.max(1, innerH - 1);
+    // Selection mode toggle and navigation
+    if (this.selectionEnabled) {
+      if (!this.selectionActive && (key === 'v' || key === 'V')) {
+        // Start selection at last visible line end
+        const startLine = Math.min(total - 1, Math.max(0, this.scroll + innerH - 1));
+        const text = (this._flattenLines(this._rect.width)[startLine] || {}).text || '';
+        const col = text.length;
+        this.selectionActive = true;
+        this.selAnchor = { line: startLine, col };
+        this.selCursor = { line: startLine, col };
+        this._colPref = col;
+        return true;
+      }
+      if (this.selectionActive) {
+        // Exit selection
+        if (key === '\u001b') { this.selectionActive = false; this.selAnchor = this.selCursor = null; return true; }
+        const moveCol = (line, col, dCol) => ({ line, col: Math.max(0, col + dCol) });
+        const lines = this._flattenLines(this._rect.width);
+        const lineLen = (ln) => ((lines[ln] && lines[ln].text) ? lines[ln].text.length : 0);
+        const clampLine = (ln) => Math.max(0, Math.min(total - 1, ln));
+        const setCursor = (ln, c) => { this.selCursor = { line: clampLine(ln), col: Math.max(0, Math.min(c, lineLen(clampLine(ln)))) }; this._colPref = this.selCursor.col; };
+        if (key === '\u001b[D') { // Left
+          if (this.selCursor.col > 0) setCursor(this.selCursor.line, this.selCursor.col - 1);
+          else if (this.selCursor.line > 0) setCursor(this.selCursor.line - 1, lineLen(this.selCursor.line - 1));
+          return true;
+        }
+        if (key === '\u001b[C') { // Right
+          if (this.selCursor.col < lineLen(this.selCursor.line)) setCursor(this.selCursor.line, this.selCursor.col + 1);
+          else if (this.selCursor.line < total - 1) setCursor(this.selCursor.line + 1, 0);
+          return true;
+        }
+        if (key === '\u001b[A' || key === 'k') { // Up
+          const ln = clampLine(this.selCursor.line - 1);
+          const col = Math.min(this._colPref, lineLen(ln));
+          setCursor(ln, col);
+          return true;
+        }
+        if (key === '\u001b[B' || key === 'j') { // Down
+          const ln = clampLine(this.selCursor.line + 1);
+          const col = Math.min(this._colPref, lineLen(ln));
+          setCursor(ln, col);
+          return true;
+        }
+        if (key === '\u001b[H' || key === 'g') { setCursor(0, 0); return true; } // Home/top
+        if (key === '\u001b[F' || key === 'G') { setCursor(total - 1, lineLen(total - 1)); return true; } // End/bottom
+        if (key === '\u001b[5~') { // PageUp
+          const ln = clampLine(this.selCursor.line - page);
+          setCursor(ln, Math.min(this._colPref, lineLen(ln))); return true;
+        }
+        if (key === '\u001b[6~') { // PageDown
+          const ln = clampLine(this.selCursor.line + page);
+          setCursor(ln, Math.min(this._colPref, lineLen(ln))); return true;
+        }
+        // Keep cursor visible by scrolling if needed
+        const top = this.scroll, bottom = this.scroll + innerH - 1;
+        if (this.selCursor.line < top) this.scroll = this.selCursor.line;
+        else if (this.selCursor.line > bottom) this.scroll = Math.min(maxTop, this.selCursor.line - (innerH - 1));
+        return true;
+      }
+    }
     if (key === 'WheelUp') { this.scroll = Math.max(0, this.scroll - 1); this._anchor = false; return true; }
     if (key === 'WheelDown') { this.scroll = Math.min(maxTop, this.scroll + 1); this._anchor = false; return true; }
     if (key === '\u001b[A' || key === 'k') { this.scroll = Math.max(0, this.scroll - 1); this._anchor = false; return true; }
@@ -108,6 +174,36 @@ class HistoryView {
     const end = Math.min(total, start + innerH);
     const visibleCount = Math.max(0, end - start);
     const row0 = this.anchorBottom ? (innerY + Math.max(0, innerH - visibleCount)) : innerY;
+    // Selection range (flattened line/col)
+    let selA = null, selB = null;
+    if (this.selectionActive && this.selAnchor && this.selCursor) {
+      const a = this.selAnchor, b = this.selCursor;
+      if (a.line < b.line || (a.line === b.line && a.col <= b.col)) { selA = a; selB = b; }
+      else { selA = b; selB = a; }
+    }
+
+    const renderRun = (runText, runStartCol, x0, y0, fg, innerW, selectedRange) => {
+      if (!runText) return x0;
+      const startX = x0;
+      const endCol = runStartCol + runText.length;
+      const selStart = selectedRange ? Math.max(runStartCol, selectedRange.start) : Infinity;
+      const selEnd = selectedRange ? Math.min(endCol, selectedRange.end) : -Infinity;
+      if (!(selStart < selEnd)) {
+        Text(screen, { x: x0, y: y0, text: runText, style: { fg, maxWidth: innerW - (x0 - startX) } });
+        return x0 + runText.length;
+      }
+      // pre
+      const pre = runText.slice(0, selStart - runStartCol);
+      if (pre) { Text(screen, { x: x0, y: y0, text: pre, style: { fg, maxWidth: innerW } }); x0 += pre.length; }
+      // selected
+      const mid = runText.slice(selStart - runStartCol, selEnd - runStartCol);
+      if (mid) { Text(screen, { x: x0, y: y0, text: mid, style: { fg, attrs: 4, maxWidth: innerW } }); x0 += mid.length; }
+      // post
+      const post = runText.slice(selEnd - runStartCol);
+      if (post) { Text(screen, { x: x0, y: y0, text: post, style: { fg, maxWidth: innerW } }); x0 += post.length; }
+      return x0;
+    };
+
     for (let row = row0, i = start; i < end; i++, row++) {
       const L = lines[i];
       // Optional timestamp segment in hint color
@@ -118,33 +214,36 @@ class HistoryView {
         Text(screen, { x: xCol, y: row, text: this.userBarChar, style: { fg: barFg } });
         xCol += this.userBarChar.length + this.userBarPad;
       }
+      // Selection range on this line (flattened col space)
+      const lineSel = (selA && selB && (i >= selA.line && i <= selB.line)) ? {
+        start: (i === selA.line ? selA.col : 0),
+        end: (i === selB.line ? selB.col : (L.text || '').length)
+      } : null;
+
       if (L.tsLen && L.tsLen > 0) {
         // Draw timestamp segment in hint color, then the rest
         const tsText = L.text.slice(0, L.tsLen);
         const rest = L.text.slice(L.tsLen);
         const t = getTheme();
-        Text(screen, { x: xCol, y: row, text: tsText, style: { fg: t.hint, maxWidth: innerW } });
-        xCol += tsText.length;
+        xCol = renderRun(tsText, 0, xCol, row, t.hint, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.tsLen) });
         if (L.senderLen && L.senderLen > 0) {
           const sender = rest.slice(0, L.senderLen);
           const remaining = rest.slice(L.senderLen);
           const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
-          Text(screen, { x: xCol, y: row, text: sender, style: { fg: senderFg, maxWidth: innerW - (xCol - innerX) } });
-          xCol += sender.length;
-          if (remaining) Text(screen, { x: xCol, y: row, text: remaining, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+          xCol = renderRun(sender, L.tsLen, xCol, row, senderFg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: Math.min(lineSel.end, L.tsLen + L.senderLen) });
+          if (remaining) xCol = renderRun(remaining, L.tsLen + L.senderLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen + L.senderLen), end: lineSel.end });
         } else {
-          if (rest) Text(screen, { x: xCol, y: row, text: rest, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+          if (rest) xCol = renderRun(rest, L.tsLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: lineSel.end });
         }
       } else {
         if (L.senderLen && L.senderLen > 0) {
           const sender = L.text.slice(0, L.senderLen);
           const remaining = L.text.slice(L.senderLen);
           const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
-          Text(screen, { x: xCol, y: row, text: sender, style: { fg: senderFg, maxWidth: innerW - (xCol - innerX) } });
-          xCol += sender.length;
-          if (remaining) Text(screen, { x: xCol, y: row, text: remaining, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+          xCol = renderRun(sender, 0, xCol, row, senderFg, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.senderLen) });
+          if (remaining) xCol = renderRun(remaining, L.senderLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.senderLen), end: lineSel.end });
         } else {
-          Text(screen, { x: xCol, y: row, text: L.text, style: { fg: L.fg, maxWidth: innerW - (xCol - innerX) } });
+          xCol = renderRun(L.text, 0, xCol, row, L.fg, innerW, lineSel);
         }
       }
     }
