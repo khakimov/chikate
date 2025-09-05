@@ -1,0 +1,32 @@
+{
+  "name": "chikate",
+  "version": "0.1.0",
+  "description": "Chikate – a small TUI library with a deterministic renderer and friendly APIs.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/**",
+    "docs/**",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "demo:hello": "node examples/hello.js",
+    "demo:ticker": "node examples/ticker.js",
+    "demo:input": "node examples/input_readonly.js",
+    "demo:input:interactive": "node examples/input_interactive.js",
+    "demo:input:multiline": "node examples/input_multiline.js",
+    "demo:app": "node examples/app_demo.js",
+    "demo:layout": "node examples/layout_demo.js",
+    "demo:progress": "node examples/progress_demo.js",
+    "demo:fluent": "node examples/fluent_quickstart.js",
+    "demo:keys-timer": "node examples/keyparser_timer_demo.js",
+    "pack": "npm pack"
+  },
+  "keywords": ["tui", "terminal", "ui", "cli", "renderer"],
+  "author": "",
+  "license": "MIT"
+}

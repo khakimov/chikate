@@ -1,0 +1,129 @@
+// KeyParser: normalize stdin key sequences to friendly events and support bracketed paste.
+// Emits events via on('key', cb) and on('paste', cb). cb receives objects:
+//  - key: { type:'key', name:string, seq:string }
+//  - paste: { type:'paste', data:string }
+
+class KeyParser {
+  constructor({ stdout = process.stdout, enableBracketedPaste = true } = {}) {
+    this.stdout = stdout;
+    this.enableBP = enableBracketedPaste;
+    this._handlers = { key: new Set(), paste: new Set() };
+    this._onData = this._onData.bind(this);
+    this._attached = null;
+    this._pasteBuf = '';
+    this._pasting = false;
+  }
+
+  attach(stdin) {
+    if (this._attached) this.detach();
+    this._attached = stdin;
+    stdin.on('data', this._onData);
+    if (this.enableBP) this._enableBracketedPaste();
+    return () => this.detach();
+  }
+
+  detach() {
+    if (!this._attached) return;
+    try { this._attached.off('data', this._onData); } catch {}
+    this._attached = null;
+    if (this.enableBP) this._disableBracketedPaste();
+  }
+
+  on(type, cb) { if (this._handlers[type]) this._handlers[type].add(cb); return () => this.off(type, cb); }
+  off(type, cb) { if (this._handlers[type]) this._handlers[type].delete(cb); }
+
+  _emit(type, payload) { for (const cb of this._handlers[type] || []) { try { cb(payload); } catch {} } }
+
+  _onData(chunk) {
+    // chunk is a string in 'utf8'
+    let s = String(chunk);
+    // Handle bracketed paste markers if present within chunk; can contain both start and end
+    // Start: ESC [ 200 ~, End: ESC [ 201 ~
+    while (s.length) {
+      if (this._pasting) {
+        const endIdx = s.indexOf('\u001b[201~');
+        if (endIdx >= 0) {
+          this._pasteBuf += s.slice(0, endIdx);
+          this._emit('paste', { type: 'paste', data: this._pasteBuf });
+          this._pasteBuf = '';
+          this._pasting = false;
+          s = s.slice(endIdx + 7); // length of ESC[201~ is 7 bytes
+          continue;
+        } else {
+          this._pasteBuf += s;
+          return;
+        }
+      }
+      const startIdx = s.indexOf('\u001b[200~');
+      if (startIdx >= 0) {
+        // Emit keys before paste start
+        const pre = s.slice(0, startIdx);
+        this._emitKeysFrom(pre);
+        s = s.slice(startIdx + 7); // skip marker (7 bytes)
+        this._pasting = true;
+        this._pasteBuf = '';
+        continue;
+      }
+      // No paste markers: emit keys for remainder
+      this._emitKeysFrom(s);
+      break;
+    }
+  }
+
+  _emitKeysFrom(s) {
+    for (const evt of this._parseKeys(s)) this._emit('key', evt);
+  }
+
+  _parseKeys(s) {
+    const events = [];
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      const code = s.charCodeAt(i);
+      // ESC sequences (CSI etc.)
+      if (ch === '\u001b') {
+        // Try known CSI sequences
+        const rest = s.slice(i);
+        const known = [
+          ['\u001b[A', 'Up'], ['\u001b[B', 'Down'], ['\u001b[C', 'Right'], ['\u001b[D', 'Left'],
+          ['\u001b[H', 'Home'], ['\u001b[F', 'End'], ['\u001b[3~', 'Delete'],
+          ['\u001b[5~', 'PageUp'], ['\u001b[6~', 'PageDown'],
+          ['\u001b[12~', 'F2'], ['\u001b[13~', 'F3'],
+          ['\u001b[Z', 'Shift+Tab'],
+        ];
+        let matched = false;
+        for (const [seq, name] of known) {
+          if (rest.startsWith(seq)) {
+            events.push({ type: 'key', name, seq });
+            i += seq.length - 1;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          // Bare ESC falls back to Esc
+          events.push({ type: 'key', name: 'Esc', seq: '\u001b' });
+        }
+        continue;
+      }
+      // Control keys Ctrl+A..Ctrl+Z (1..26)
+      if (code >= 1 && code <= 26) {
+        const letter = String.fromCharCode(code + 64);
+        events.push({ type: 'key', name: `Ctrl+${letter}`, seq: ch });
+        continue;
+      }
+      if (code === 13) { events.push({ type: 'key', name: 'Enter', seq: '\r' }); continue; }
+      if (code === 10) { events.push({ type: 'key', name: 'Ctrl+J', seq: '\n' }); continue; }
+      if (code === 9) { events.push({ type: 'key', name: 'Tab', seq: '\t' }); continue; }
+      if (code === 127) { events.push({ type: 'key', name: 'Backspace', seq: '\x7f' }); continue; }
+      // Printable
+      events.push({ type: 'key', name: ch, seq: ch });
+    }
+    return events;
+  }
+
+  _enableBracketedPaste() { try { this.stdout.write('\u001b[?2004h'); } catch {} }
+  _disableBracketedPaste() { try { this.stdout.write('\u001b[?2004l'); } catch {} }
+}
+
+module.exports = { KeyParser };
+
