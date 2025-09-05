@@ -36,6 +36,62 @@ function main() {
     const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2 });
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
+    // Fancy ASCII logo (ported from scripts/logo_input_combo.js)
+    let asciiLogoOn = false;
+    const CHAR_RAMP = ' .:-=+*#%@';
+    const NOISE_SCALE = 20;
+    const ASPECT = 0.5; // vertical stretch to look round-ish in cells
+    function lerp(a,b,t){ return a+(b-a)*t; }
+    function clamp01(x){ return x<0?0:(x>1?1:x); }
+    function makeSimplex2(seed){
+      let s = seed>>>0; function rnd(){ s=(s*1664525+1013904223)>>>0; return s/0xffffffff; }
+      const perm = new Uint8Array(512); const p=new Uint8Array(256);
+      for(let i=0;i<256;i++) p[i]=i;
+      for(let i=255;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const t=p[i]; p[i]=p[j]; p[j]=t; }
+      for(let i=0;i<512;i++) perm[i]=p[i&255];
+      const F2=0.5*(Math.sqrt(3)-1), G2=(3-Math.sqrt(3))/6;
+      function dot(gx,gy,x,y){ return gx*x+gy*y; }
+      function grad2(h){ h&=7; const gx=[1,-1,1,-1,1,-1,0,0][h]; const gy=[1,1,-1,-1,0,0,1,-1][h]; return [gx,gy]; }
+      return function(xin,yin){ let n0=0,n1=0,n2=0; const s=(xin+yin)*F2; const i=Math.floor(xin+s), j=Math.floor(yin+s);
+        const t=(i+j)*G2; const X0=i-t, Y0=j-t; const x0=xin-X0, y0=yin-Y0; let i1,j1; if(x0>y0){i1=1;j1=0;} else {i1=0;j1=1;}
+        const x1=x0-i1+G2, y1=y0-j1+G2, x2=x0-1+2*G2, y2=y0-1+2*G2; const ii=i&255, jj=j&255;
+        const gi0=perm[ii+perm[jj]], gi1=perm[ii+i1+perm[jj+j1]], gi2=perm[ii+1+perm[jj+1]];
+        let t0=0.5-x0*x0-y0*y0; if(t0>=0){ t0*=t0; const [gx,gy]=grad2(gi0); n0=t0*t0*dot(gx,gy,x0,y0); }
+        let t1=0.5-x1*x1-y1*y1; if(t1>=0){ t1*=t1; const [gx,gy]=grad2(gi1); n1=t1*t1*dot(gx,gy,x1,y1); }
+        let t2=0.5-x2*x2-y2*y2; if(t2>=0){ t2*=t2; const [gx,gy]=grad2(gi2); n2=t2*t2*dot(gx,gy,x2,y2); }
+        return 70*(n0+n1+n2);
+      };
+    }
+    const noise2 = makeSimplex2(Date.now()>>>0);
+    function palette(c){ // gpt5-like palette
+      const stops = [[0,153,255],[255,140,0],[255,0,136],[55,0,42]];
+      const B = clamp01(c); const D=stops.length-1; const G=B*D; const X=Math.min(Math.floor(G), D-1); const Y=G-X;
+      const K=stops[X], Z=stops[X+1];
+      return [0,1,2].map(i=>Math.round(lerp(K[i], Z[i], Y)));
+    }
+    function drawAsciiLogo(screen, { x, y, width, height, tSec }){
+      const D = Math.max(8, width);
+      const G = Math.max(6, height);
+      const Xc = D/2, Yc = G/2;
+      const K = Math.max(1, D/2 - 1);
+      const Z = Math.max(1, G/(2*ASPECT) - 1);
+      const q = Math.min(K, Z);
+      for (let U=0; U<G; U++){
+        for (let E=0; E<D; E++){
+          const w0 = E - Xc;
+          const I = (U - Yc)/ASPECT;
+          const V = Math.sqrt(w0*w0 + I*I)/q;
+          if (V >= 1) { screen.setCell(x+E, y+U, ' '); continue; }
+          const L = 1 - V*V;
+          const n = noise2(E/NOISE_SCALE, U/NOISE_SCALE + tSec);
+          const C = ((n+1)*0.5) * L;
+          const idx = Math.max(0, Math.min(CHAR_RAMP.length-1, Math.floor(C*CHAR_RAMP.length)));
+          const ch = CHAR_RAMP[idx] || ' ';
+          const [r,g,b] = palette(C);
+          screen.setCell(x+E, y+U, ch, { r, g, b }, null, 0);
+        }
+      }
+    }
 
     // Status indicators
     const t = getTheme();
@@ -49,6 +105,8 @@ function main() {
     // Commands
     const commands = [
       { text: '/help', desc: 'Open help popup' },
+      { text: '/ascii <path?>', desc: 'Show ASCII poster from file (default: docs/ascii.md)' },
+      { text: '/logo', desc: 'Toggle logo visibility' },
       { text: '/status <label>', desc: 'Show a status banner with label' },
       { text: '/status off', desc: 'Close dynamic statuses' },
       { text: '/scene <name>', desc: 'Set current scene' },
@@ -72,6 +130,7 @@ function main() {
       borderFooter: 'Enter to send',
       readOnly: false,
       allowNewlines: true,
+      suggestionSubmitOnPick: true,
       autoResize: true,
       minRows: 3,
       maxRows: 6,
@@ -99,9 +158,15 @@ function main() {
           }
           input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/scene ')) { const name = trimmed.slice('/scene '.length).trim(); if (name) history.push({ who: 'status', text: `Scene: ${name}`, ts: Date.now() }); input.setValue(''); sched.requestFrame(); return; }
+        if (trimmed === '/ascii' || trimmed.startsWith('/ascii ')) {
+          const arg = trimmed.slice('/ascii'.length).trim();
+          openAscii(arg || null);
+          input.setValue(''); sched.requestFrame(); return;
+        }
         if (trimmed === '/clear') { history.length = 0; input.setValue(''); sched.requestFrame(); return; }
         if (trimmed === '/demo') { runDemo(); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/think')) { toggleThinking(); input.setValue(''); sched.requestFrame(); return; }
+        if (trimmed === '/logo') { asciiLogoOn = !asciiLogoOn; logo.setVisible(!asciiLogoOn); ensureAnimTicker(); input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/typing')) { toggleTyping(); input.setValue(''); sched.requestFrame(); return; }
 
         // User message
@@ -142,12 +207,69 @@ function main() {
       const body = `Demo App\n\n` +
         `- Startup logo hides on first message.\n` +
         `- Thinking and Typing show above input; they can overlap and stack.\n` +
-        `- /help, /think, /typing, /clear commands.\n` +
-        `- F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n\n` + Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
+        `- Commands: /help, /logo, /think, /typing, /clear.\n` +
+        `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n\n` + Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
       const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder, style: { style: 'rounded', borderFooter: 'F1 Help', borderFooterAlign: 'right', borderFooterPosition: 'top' } });
       popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
       overlays.push(popup);
       sched.requestFrame();
+    }
+    function openAscii(filePath = null) {
+      const fs = require('fs'); const path = require('path');
+      let body = '';
+      try {
+        const p = filePath ? path.resolve(process.cwd(), filePath) : path.join(__dirname, '..', 'docs', 'ascii.md');
+        body = fs.readFileSync(p, 'utf8');
+      } catch (e) {
+        body = `Failed to read file.\n\n${e?.message || e}`;
+      }
+      const { width: W, height: H } = screen.size();
+      // Downscale the ASCII to a smaller representation that fits nicely
+      function scaleAscii(text, targetW, targetH) {
+        const lines = String(text || '').replace(/\r/g, '').split('\n');
+        const srcH = lines.length;
+        const srcW = lines.reduce((m, l) => Math.max(m, l.length), 0);
+        if (srcW === 0 || srcH === 0) return text;
+        const sx = Math.max(1, Math.ceil(srcW / targetW));
+        const sy = Math.max(1, Math.ceil(srcH / targetH));
+        const ramp = [' ', '░', '▒', '▓', '█'];
+        const weight = (ch) => {
+          if (ch === '█') return 1.0; if (ch === '▓') return 0.8; if (ch === '▒') return 0.55; if (ch === '░') return 0.35;
+          if (ch === ' ' || ch === '\\t') return 0.0; return 0.6;
+        };
+        const padded = lines.map(l => l.padEnd(srcW, ' '));
+        const out = [];
+        for (let y = 0; y < srcH; y += sy) {
+          let row = '';
+          for (let x = 0; x < srcW; x += sx) {
+            let acc = 0, cnt = 0;
+            for (let yy = 0; yy < sy; yy++) {
+              const ly = y + yy; if (ly >= srcH) break;
+              const line = padded[ly];
+              for (let xx = 0; xx < sx; xx++) {
+                const lx = x + xx; if (lx >= srcW) break;
+                acc += weight(line[lx]); cnt++;
+              }
+            }
+            const avg = cnt ? acc / cnt : 0;
+            const idx = Math.max(0, Math.min(ramp.length - 1, Math.round(avg * (ramp.length - 1))));
+            row += ramp[idx];
+          }
+          out.push(row.replace(/\s+$/,''));
+          if (out.length >= targetH) break;
+        }
+        return out.join('\n');
+      }
+      // Aim for ~60% of the current window size for a nicer "poster" instead of full-screen
+      const innerW = Math.max(20, Math.floor((W - 6) * 0.6));
+      const innerH = Math.max(10, Math.floor((H - 6) * 0.6));
+      const scaled = scaleAscii(body, innerW, innerH);
+      // Build a centered, borderless popup sized around the scaled content
+      const boxW = Math.min(W - 2, scaled.split('\n').reduce((m,l)=>Math.max(m,l.length),0) + 4);
+      const boxH = Math.min(H - 2, scaled.split('\n').length + 4);
+      const popup = new PopupOverlay({ title: '', body: scaled, width: boxW, height: boxH, border: 'none', backdrop: true, wrap: false, center: true, style: { fg: getTheme().fg } });
+      popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
+      overlays.push(popup);
     }
 
     // Paint
@@ -164,6 +286,21 @@ function main() {
       input.cfg.x = inputBox.x; input.cfg.y = inputBox.y; input.cfg.width = inputBox.width; input.cfg.height = inputHeight;
       historyView.setItems(history);
       historyView.paint(screen, histBox);
+      // Draw startup logo/ASCII before input so suggestions overlay it
+      if (!firstMessageSent) {
+        if (asciiLogoOn) {
+          const tSec = (Date.now()>>>0) / 1000;
+          const pad = 2;
+          const ax = histBox.x + pad;
+          const ay = histBox.y + pad;
+          const aw = Math.max(10, histBox.width - pad*2);
+          const ah = Math.max(6, histBox.height - pad*2 - 2);
+          drawAsciiLogo(screen, { x: ax, y: ay, width: aw, height: ah, tSec });
+        } else {
+          const logoY = histBox.y + Math.floor(histBox.height / 2);
+          logo.paint(screen, { x: histBox.x + 2, y: logoY, width: histBox.width - 4 });
+        }
+      }
       // Status entries above input
       const active = statuses.getActive();
       let sy = thinkY;
@@ -184,10 +321,6 @@ function main() {
         Text(screen, { x: startX, y: hintY, text: 'Ctrl+C', style: { fg: tcolors.title, attrs: tcolors.titleAttrs || 0 } });
         // Rest:  again to exit
         Text(screen, { x: startX + 'Ctrl+C'.length, y: hintY, text: ' again to exit', style: { fg: tcolors.hint } });
-      }
-      if (!firstMessageSent) {
-        const logoY = histBox.y + Math.floor(histBox.height / 2);
-        logo.paint(screen, { x: histBox.x + 2, y: logoY, width: histBox.width - 4 });
       }
       overlays.paint(screen);
     });
@@ -221,6 +354,7 @@ function main() {
         if (sc) { sched.requestFrame(); return; }
       }
       if (overlays.isOpen()) return;
+      if (evt.name === 'F1') { openHelp(); return; }
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
@@ -255,11 +389,16 @@ function main() {
     let animTicker = null;
     function ensureAnimTicker() {
       if (animTicker) return;
-      animTicker = timers.every(80, () => {
-        if (statuses.getActive().length > 0) sched.requestFrame();
+      animTicker = timers.every(100, () => {
+        const anyStatus = statuses.getActive().length > 0;
+        const showLogo = !firstMessageSent && logo.visible;
+        const showAscii = !firstMessageSent && asciiLogoOn;
+        if (anyStatus || showLogo || showAscii) sched.requestFrame();
         else { timers.clear(animTicker); animTicker = null; }
       });
     }
+    // Start animation so logo shows animated at startup
+    ensureAnimTicker();
 
     // Guided demo: narrates features and shows them.
     let demoRunning = false;
@@ -283,7 +422,7 @@ function main() {
       say('You can interrupt the tour any time and type normally.');
 
       // Help popup
-      say('First: Help popup. It is modal, blocks input, and supports scrolling. Close with Esc or q.');
+      say('First: Help popup. It is modal, blocks input, and supports scrolling. Close with Esc.');
       act(() => openHelp(), /*dwell*/ 2600);
       act(() => overlays.pop());
 

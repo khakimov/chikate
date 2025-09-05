@@ -25,6 +25,10 @@ class InputField {
       suggestionProvider: null, // (prefix, value, cursor) => items[]
       suggestionPrefix: '/',
       suggestionLimit: 5,
+      // Submit immediately after picking a suggestion that looks like a command.
+      // 'auto' (default): submit if the picked token starts with suggestionPrefix.
+      // true: always submit on pick; false: never submit on pick.
+      suggestionSubmitOnPick: 'auto',
       // Suggestion dropdown sizing/placement (match scripts/logo_input_combo.js by default)
       suggestionBoxWidthRatio: 0.6, // portion of terminal width (when not using input width)
       suggestionInset: 1,           // margin from screen edge when align='left' or 'right'
@@ -157,7 +161,8 @@ class InputField {
         return true;
       }
       if (this.suggestOpen && this.suggestions[this.suggestIndex]) {
-        this._applySuggestion(this.suggestions[this.suggestIndex]);
+        const submitted = this._applySuggestion(this.suggestions[this.suggestIndex]);
+        if (submitted) return true;
       } else if (typeof this.cfg.onSubmit === 'function') {
         this.cfg.onSubmit(this.value);
       }
@@ -271,16 +276,43 @@ class InputField {
   setHeight(lines) { this.cfg.height = Math.max(1, lines | 0); }
 
   _applySuggestion(item) {
-    // Replace token before cursor with the selected suggestion
+    // Replace token before cursor with the selected suggestion, optionally auto-submit.
     const before = this.value.slice(0, this.cursor);
     const after = this.value.slice(this.cursor);
     const m = before.match(/(^|\s)(\S*)$/);
-    const head = m ? before.slice(0, before.length - m[2].length) : before;
-    const text = (typeof item === 'string') ? item : (item && item.text) || '';
-    this.value = head + text + ' ' + after;
-    this.cursor = (head + text + ' ').length;
+    const head = m ? before.slice(0, before.length - (m[2]?.length || 0)) : before;
+    const raw = (typeof item === 'string') ? item : (item && (item.insert || item.text)) || '';
+    // Extract leading token (command) before any description or whitespace
+    let token = String(raw).trim();
+    const emDash = ' — ';
+    const emIdx = token.indexOf(emDash);
+    if (emIdx >= 0) token = token.slice(0, emIdx);
+    else { const sp = token.search(/\s/); if (sp >= 0) token = token.slice(0, sp); }
+
+    const insertText = token + ' ';
+    const nextValue = head + insertText + after;
+    const nextCursor = (head + insertText).length;
+
+    // Close suggestions now
     this.suggestOpen = false;
+
+    const auto = this.cfg.suggestionSubmitOnPick;
+    const isCommand = !!this.cfg.suggestionPrefix && token.startsWith(this.cfg.suggestionPrefix);
+    const shouldSubmit = (auto === true) || (auto === 'auto' && isCommand);
+    if (shouldSubmit && typeof this.cfg.onSubmit === 'function') {
+      // Submit without leaving the command text in the input
+      this.value = '';
+      this.cursor = 0;
+      this._notifyChange();
+      try { this.cfg.onSubmit(token); } catch {}
+      return true;
+    }
+
+    // Otherwise insert and keep editing
+    this.value = nextValue;
+    this.cursor = nextCursor;
     this._notifyChange();
+    return false;
   }
 
   paint(screen) {

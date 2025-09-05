@@ -105,6 +105,7 @@ class KeyParser {
           continue;
         }
         const known = [
+          ['\u001bOP', 'F1'], ['\u001b[11~', 'F1'],
           ['\u001b[A', 'Up'], ['\u001b[B', 'Down'], ['\u001b[C', 'Right'], ['\u001b[D', 'Left'],
           ['\u001b[H', 'Home'], ['\u001b[F', 'End'], ['\u001b[3~', 'Delete'],
           ['\u001b[5~', 'PageUp'], ['\u001b[6~', 'PageDown'],

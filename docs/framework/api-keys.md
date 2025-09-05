@@ -8,9 +8,9 @@ Modules
 - Mapper: `src/input/Keys.js` — `Keys.map({ ... })`
 
 KeyParser
-- `new KeyParser({ stdout=process.stdout, enableBracketedPaste=true })`
-- `attach(stdin): () => void` — listen to `data`; enables bracketed paste (`CSI ? 2004 h`).
-- `detach(): void` — removes listener; disables bracketed paste.
+- `new KeyParser({ stdout=process.stdout, enableBracketedPaste=true, enableMouse=false })`
+- `attach(stdin): () => void` — listen to `data`; enables bracketed paste (`CSI ? 2004 h`) and mouse (`CSI ? 1006 h`) if configured.
+- `detach(): void` — removes listener; disables paste and mouse if enabled.
 - `on('key', cb)`, `on('paste', cb)` — subscribe to events; returns `off` via `on` return.
 - Event shapes:
   - Key: `{ type:'key', name:string, seq:string }` e.g., `Up`, `Ctrl+T`, `F2`, `/`.
@@ -22,8 +22,9 @@ Keys Mapper
 
 Notes
 - Exit: examples use a double Ctrl+C window (1s) to prevent accidental exits.
-- The parser recognizes arrows, Home/End/Delete, PgUp/PgDn, F2/F3, Tab/Shift+Tab, Backspace, Enter, Ctrl+A..Z, and printable chars.
-- While parsing a paste, all content until the end marker is emitted as one `paste` event.
+- Recognizes: arrows, Home/End/Delete, PgUp/PgDn, F1–F3, Tab/Shift+Tab, Backspace, Enter, Ctrl+A..Z, and printable chars.
+- Mouse (if enabled): emits keys `WheelUp` and `WheelDown`.
+- Paste: while parsing a paste, all content until the end marker is emitted as one `paste` event.
 
 Binding guidelines (reasoning‑first)
 - Treat printable keys as input; avoid global bindings on printable characters (e.g., “?”).

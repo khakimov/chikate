@@ -8,9 +8,9 @@ Module
 - Export: `withApp(run, opts?)`
 
 Signature
-- `withApp(({ screen, sched, stdin, keys, timers, cleanup }) => stopFn?, { enableBracketedPaste=true, loop=false, cursorStyle=null, resizeDebounceMs=32 }={})`
+- `withApp(({ screen, sched, stdin, keys, timers, cleanup }) => stopFn?, { enableBracketedPaste=true, enableMouse=true, loop=false, cursorStyle=null, resizeDebounceMs=32 }={})`
   - Sets alt-screen, clears, enters raw mode, installs SIGINT/exit cleanup, and resize handling.
-  - Attaches a KeyParser (normalized keys + bracketed paste) to `stdin`.
+  - Attaches a KeyParser (normalized keys, bracketed paste, optional mouse wheel) to `stdin`.
   - Calls your `run` function with core handles.
   - Requests one initial frame; if `loop=true`, runs a continuous loop (off by default).
   - Resize: clears screen, resizes buffers, forces an immediate frame and a short debounced follow-up.
@@ -19,6 +19,8 @@ Signature
 Options
 - `cursorStyle`: set terminal cursor style on start (DECSCUSR). Values: `blink-block`, `block`, `blink-underline`, `underline`, `blink-bar`, `bar`. Restored on exit.
 - `resizeDebounceMs`: schedule a follow-up frame after a resize burst (default 32ms).
+ - `enableBracketedPaste`: enable paste mode (default true). Disables on cleanup.
+ - `enableMouse`: enable SGR mouse and wheel events (default true). Disables on cleanup. Pass `enableMouse: false` for keyboard-only apps.
 
 Usage
 - Basic
@@ -29,3 +31,4 @@ Usage
 Notes
 - Resize: listens to `process.stdout.on('resize')` and resizes the screen buffer with current `columns/rows`.
 - Plays well with `Page`, `FocusManager`, `OverlayStack`, and the fluent layer.
+- Mouse: When enabled, `KeyParser` emits `WheelUp`/`WheelDown` that are handled by `HistoryView` and `PopupOverlay` for scrolling.

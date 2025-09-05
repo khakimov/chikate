@@ -28,7 +28,7 @@ function main() {
     screen.beginFrame();
     Box(screen, { x: bx, y: by, width: bw, height: bh, title: 'Scheduler', style: { borderFg: t.border, titleFg: t.title, titleAttrs: t.titleAttrs } });
     Text(screen, { x: bx + 2, y: by + 2, text: `Ticks: ${ticks}`, style: { fg: t.fg } });
-    Text(screen, { x: bx + 2, y: by + 4, text: `Press q to quit`, style: { fg: t.hint } });
+    Text(screen, { x: bx + 2, y: by + 4, text: `F1 for help • Ctrl+C twice to exit`, style: { fg: t.hint } });
     overlays.paint(screen);
   });
 
@@ -51,14 +51,14 @@ function main() {
       }
     }
     // Global shortcuts
-    if (key === '?' ) {
+    if (key === '\u001bOP' || key === '\u001b[11~' ) { // F1
       if (!overlays.isOpen()) {
         const helpBody = `This is the help popup.\n\n` +
           `Controls while open:\n` +
           `  Up/Down or j/k: scroll one line\n` +
           `  PgUp/PgDn: page scroll\n` +
           `  Home/End: jump to start/end\n` +
-          `  Esc or q: close\n\n` +
+          `  Esc: close\n\n` +
           `Scroll test lines:\n` +
           Array.from({ length: 60 }, (_, i) => `  • Item ${i + 1}: lorem ipsum dolor sit amet`).join('\n');
         const popup = new PopupOverlay({ title: 'Help', body: helpBody, width: 50, height: 14 });
@@ -69,9 +69,15 @@ function main() {
       return;
     }
     if (key === 'T') { tToggle(); sched.requestFrame(); return; }
-    if (key === 'q' || key === '\u0003') { // q or Ctrl-C
-      cleanup();
-      process.exit(0);
+    if (key === '\u0003') { // Ctrl-C
+      if (exitConfirm) { cleanup(); process.exit(0); }
+      exitConfirm = true;
+      const popup = new PopupOverlay({ title: 'Exit', body: 'Press Ctrl+C again to exit', width: 34, height: 6 });
+      popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
+      overlays.push(popup);
+      sched.requestFrame();
+      if (exitTimer) clearTimeout(exitTimer);
+      exitTimer = setTimeout(() => { exitConfirm = false; if (overlays.isOpen()) overlays.pop(); sched.requestFrame(); }, 1200);
     }
   });
 
@@ -80,7 +86,7 @@ function main() {
   process.stdout.write('\u001b[2J');
   process.stdout.write('\u001b[H');
 
-  process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  // Let Ctrl+C be handled in the key handler for double-confirm UX
   process.on('exit', cleanup);
 
   function loop() { sched.requestFrame(); setTimeout(loop, 0); }
@@ -106,5 +112,8 @@ function cleanup() {
   process.stdout.write('\u001b[?25h');
   process.stdout.write('\u001b[?1049l');
 }
+
+let exitConfirm = false;
+let exitTimer = null;
 
 main();

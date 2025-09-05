@@ -3,11 +3,11 @@ const { Scheduler } = require('../scheduler/Scheduler');
 const { TimerRegistry } = require('../time/Timer');
 const { KeyParser } = require('../input/KeyParser');
 
-function withApp(run, { enableBracketedPaste = true, loop = false, cursorStyle = null, resizeDebounceMs = 32 } = {}) {
+function withApp(run, { enableBracketedPaste = true, enableMouse = true, loop = false, cursorStyle = null, resizeDebounceMs = 32 } = {}) {
   const screen = new Screen();
   const sched = new Scheduler({ fps: 30 });
   const timers = new TimerRegistry();
-  const keys = new KeyParser({ enableBracketedPaste });
+  const keys = new KeyParser({ enableBracketedPaste, enableMouse });
   // Alt screen & clear
   process.stdout.write('\u001b[?1049h');
   process.stdout.write('\u001b[2J');
@@ -35,7 +35,7 @@ function withApp(run, { enableBracketedPaste = true, loop = false, cursorStyle =
     try { process.stdout.write('\u001b[?1049l'); } catch {}
   }
 
-  process.on('SIGINT', () => { cleanup(); process.exit(0); });
+  // Let Ctrl+C be handled by application key handlers for double-confirm UX
   process.on('SIGTERM', () => { cleanup(); process.exit(0); });
   process.on('SIGHUP', () => { cleanup(); process.exit(0); });
   process.on('uncaughtException', (err) => { try { console.error(err); } catch {}; cleanup(); process.exit(1); });

@@ -11,8 +11,9 @@ Run the demos
 
 The basics
 - App shell
-- Use `withApp(({ screen, sched, stdin, keys, timers }) => { ... })`.
+- Use `withApp(({ screen, sched, stdin, keys, timers }) => { ... }, { enableMouse: true })`.
 - It sets alt‑screen, raw mode, cleanup, resize handling, and attaches a KeyParser.
+- Mouse wheel is enabled by default; disable with `{ enableMouse: false }` for keyboard‑only apps.
 - It does not loop by default. Request frames when state changes.
 - Drawing
   - Call `screen.beginFrame()` in `sched.on('paint', ...)`.
@@ -22,7 +23,7 @@ The basics
   - Use `Page.full(screen).margin(2).column(1).add(...)` to split space.
   - `Row` and `Column` accept children with `flex` or `minWidth/minHeight`.
 - Input
-  - Use `KeyParser` for normalized keys and bracketed paste.
+  - Use `KeyParser` for normalized keys, bracketed paste, and optional mouse wheel.
   - Use `FocusManager` to route keys. Tab switches focus; overlays intercept first.
   - Ownership: printable keys go to the focused widget (usually the input). Global shortcuts should be non‑printable (F‑keys, Ctrl combos) and `/commands` handled in `onSubmit`.
   - Exit: prefer Ctrl+C. The examples use a double‑press window (1s) to prevent accidental exits; avoid binding a plain `q` to quit.
@@ -40,13 +41,12 @@ Avoid flicker
 - While animating, use a small timer (80–120ms). Stop it when idle.
 
 Common patterns
-- History
-  - Use `HistoryView` to draw scrollable logs: timestamps, role colors, PgUp/PgDn.
+  - Use `HistoryView` to draw scrollable logs: timestamps, role colors, PgUp/PgDn, mouse wheel.
   - For a modern feed, set `border: 'none'`, `anchorBottom: true`, and `itemGap: 1`.
   - Status banners (Thinking/Typing) are transient UI; avoid logging them to history.
 - Input field
   - `InputField` supports editing, wrap, and a suggestion dropdown above the input.
-  - When suggestions are open, Enter accepts the highlighted suggestion; press Enter again to submit the command.
+  - Suggestions can auto-submit: set `suggestionSubmitOnPick: 'auto' | true` to submit commands like `/help` immediately when picked.
   - Handle commands in `onSubmit` (e.g., `/help`, `/clear`) instead of binding printable keys globally.
 - Progress
   - `ProgressBar` draws a solid fill bar. For logs, use `renderProgressLine(...)`.

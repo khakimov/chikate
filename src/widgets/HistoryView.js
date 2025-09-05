@@ -65,6 +65,8 @@ class HistoryView {
     const total = Math.max(0, this._flattenLines(this._rect.width).length);
     const maxTop = Math.max(0, total - innerH);
     const page = Math.max(1, innerH - 1);
+    if (key === 'WheelUp') { this.scroll = Math.max(0, this.scroll - 1); this._anchor = false; return true; }
+    if (key === 'WheelDown') { this.scroll = Math.min(maxTop, this.scroll + 1); this._anchor = false; return true; }
     if (key === '\u001b[A' || key === 'k') { this.scroll = Math.max(0, this.scroll - 1); this._anchor = false; return true; }
     if (key === '\u001b[B' || key === 'j') { this.scroll = Math.min(maxTop, this.scroll + 1); this._anchor = false; return true; }
     if (key === '\u001b[5~') { this.scroll = Math.max(0, this.scroll - page); this._anchor = false; return true; }

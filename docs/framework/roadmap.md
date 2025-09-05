@@ -150,11 +150,52 @@ Timeline (Rough)
 - Week 3: v6 + polish, docs, examples
 
 Next Steps
-- Add concise API docs (screen/scheduler/layout/widgets/overlay/status/theme).
-- Focus manager (centralized); current routing is manual per demo.
-- Mouse input (SGR 1006) for clickable status toggles and popup close.
-- History polish: wrapping + timestamps; role styling from theme.
-- Theme menu + persistence; document legacy mapping to tokens.
+- Style System (Phase 1)
+  - Extract shared style options (border style/footer, colors) into a single contract consumed by all Box‑based widgets. [DONE]
+  - PopupOverlay: adopt shared border footer options and pass via Box. [DONE]
+  - HistoryView: accept border style/footer (even if typically border='none'). [DONE]
+  - Add style-system.md (one‑screen spec). [DONE]
+  - AlignX/AlignY: introduce content alignment where applicable (Text, banners). [PLANNED]
+  - Padding/Margins: add style.paddingX/paddingY where relevant; normalize across widgets. [PLANNED]
+
+- HistoryView Improvements (Phase 2)
+  - Bottom anchoring with auto‑scroll when at end. [DONE]
+  - New messages indicator when scrolled up (⇩ N new). [DONE]
+  - Sender labels: `showSender`, `senderFormat`, `style.senderFg`. [DONE]
+  - Mouse wheel scroll + PgUp/PgDn; End re‑anchors. [DONE]
+  - Optional page‑sized PgUp/PgDn; virtualization for large logs. [PLANNED]
+
+- Status System (Phase 2)
+  - Animated color waves for Thinking/Typing (cool/warm palettes). [DONE]
+  - Dynamic statuses via `/status <label>`; `/status off` to clear. [DONE]
+  - Sticky toggle row for Thinking (mouse‑clickable) — planned roadmap feature. [PLANNED]
+
+- Input & Commands (Phase 2)
+  - Border footer labels (Enter to send) with align/position. [DONE]
+  - Keep `/help` suggestion UX (display vs insertion). [DONE]
+  - Command hooks: `/scene <name>` example; pattern for registering app‑level commands. [DONE]
+  - Optional: history recall (Up/Down when input empty), validators, formatters. [PLANNED]
+
+- Mouse & Cleanup (Phase 1.5)
+  - Enable SGR 1006 + X10 mouse modes; normalize wheel events. [DONE]
+  - Detach KeyParser + disable mouse/paste on all exits, including crashes. [DONE]
+  - Clickable status toggles and popup close (left click). [PLANNED]
+
+- Docs (Ongoing, concise)
+  - API stubs for core modules (screen/scheduler/layout/widgets/overlay/status/theme). [PLANNED]
+  - Style System: short spec; widgets reference it. [DONE]
+  - LLM Guidance: invariants + do/don’t list (printables → input; non‑printables → global). [DONE]
+
+Deliverables (Upcoming)
+- Phase 1.1: AlignX/AlignY on Text/banner widgets; paddingX/Y for HistoryView + PopupOverlay.
+- Phase 2.1: Page‑sized PgUp/PgDn; wheel step configurable; optional virtualization stub.
+- Phase 2.2: Click‑to‑toggle Thinking; click‑to‑close popup (X in corner); minimal mouse click normalization.
+- Phase 2.3: Command router utility (string → handler) with help metadata; demo registry.
+
+Risks & Notes
+- Mouse sequences differ by terminal; we use SGR 1006 with X10 fallback; always disable on exit.
+- Keep README lean; centralize details in short, focused docs.
+- Maintain theme‑first design; style overrides are optional, consistent across widgets.
 
 Open Questions
 - Theming: legacy fidelity vs. colorized statuses (we support both via tokens).
@@ -162,8 +203,8 @@ Open Questions
 - History model: keep StatusManager separate (current) or unify with history entries with special renderers?
 
 Usage Notes (Demos)
-- App: `npm run demo:app` — `/help` opens PopupOverlay; Shift+B toggles popup border; Shift+T cycles themes (legacy/dark/light); F2/Ctrl+T and F3/Ctrl+Y toggle statuses.
-- Ticker: `npm run demo:ticker` — Shift+T toggles themes; `/help` opens help in demos that support it.
+- App: `npm run demo:app` — F1 or `/help` opens PopupOverlay; Shift+B toggles popup border; Shift+T cycles themes (legacy/dark/light); F2/Ctrl+T and F3/Ctrl+Y toggle statuses.
+- Ticker: `npm run demo:ticker` — Shift+T toggles themes; F1 opens help.
 - Input: `npm run demo:input` (read‑only), `npm run demo:input:interactive`, `npm run demo:input:multiline`.
 
 Changelog

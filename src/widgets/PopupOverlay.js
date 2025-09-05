@@ -3,7 +3,7 @@ const { Text } = require('./Text');
 const { getTheme } = require('../theme/theme');
 
 class PopupOverlay {
-  constructor({ title = 'Help', body = '', footer = 'Arrows/PgUp/PgDn/Home/End, j/k; Esc or q to close', width = 40, height = 12, style = {}, border = 'box', backdrop = false } = {}) {
+  constructor({ title = 'Help', body = '', footer = 'Arrows/PgUp/PgDn/Home/End, j/k; Esc to close', width = 40, height = 12, style = {}, border = 'box', backdrop = false, wrap = true, center = false } = {}) {
     this.title = title;
     this.footer = footer;
     this.width = width;
@@ -24,16 +24,22 @@ class PopupOverlay {
     }, style);
     this.scroll = 0;
     this.backdrop = !!backdrop; // default: no full-screen backdrop; keep background visible
+    this.wrap = !!wrap;
+    this.center = !!center;
     this._rawBody = String(body || '');
     this._lines = [];
     this._wrapBody();
   }
 
   _wrapBody() {
+    const rawLines = String(this._rawBody || '').split('\n');
+    if (!this.wrap) {
+      this._lines = rawLines;
+      return;
+    }
     // simple greedy wrap by spaces to width-4 (inside border padding 2)
     const innerW = Math.max(1, this.width - 4);
     const lines = [];
-    const rawLines = this._rawBody.split('\n');
     for (const rl of rawLines) {
       const words = rl.split(/(\s+)/); // keep spaces groups
       let line = '';
@@ -55,10 +61,12 @@ class PopupOverlay {
 
   handleKey(key) {
     const page = Math.max(1, this.height - 5); // title + footer + padding
-    if (key === '\u001b' || key === 'q') { // Esc or q
+    if (key === '\u001b') { // Esc
       this._requestClose && this._requestClose();
       return true;
     }
+    if (key === 'WheelUp') { this.scroll = Math.max(0, this.scroll - 1); return true; }
+    if (key === 'WheelDown') { this.scroll = Math.min(this._maxScroll(), this.scroll + 1); return true; }
     if (key === '\u001b[A' || key === 'k') { // Up
       this.scroll = Math.max(0, this.scroll - 1); return true;
     }
@@ -135,7 +143,9 @@ class PopupOverlay {
     this.scroll = Math.max(0, Math.min(this.scroll, maxScroll));
     for (let i = 0; i < bodyHeight; i++) {
       const src = this._lines[this.scroll + i] || '';
-      Text(screen, { x: innerX, y: bodyTop + i, text: src, style: { fg: this.style.fg, maxWidth: innerW } });
+      const line = this.center ? src.slice(0, innerW) : src;
+      const offset = this.center ? Math.max(0, Math.floor((innerW - line.length) / 2)) : 0;
+      Text(screen, { x: innerX + offset, y: bodyTop + i, text: line, style: { fg: this.style.fg, maxWidth: innerW - offset } });
     }
 
     // footer
