@@ -392,6 +392,19 @@ function main() {
       if (consumed) sched.requestFrame();
     });
 
+    // Zoned selection: default to native selection; enable app-driven selection via /selection on
+    let zonedSelect = false;
+    try { keys.setMouseEnabled(false); } catch {}
+    keys.on('key', (evt) => {
+      if (!zonedSelect) return;
+      if (evt.name === 'MouseDown' || evt.name === 'MouseUp') {
+        if (overlays.isOpen()) return;
+        const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
+        if (within(histBox)) { if (historyView.handleMouse(evt)) sched.requestFrame(); return; }
+        if (within(inputBox)) { if (input.handleMouse(evt)) sched.requestFrame(); return; }
+      }
+    });
+
     // Animation ticker only when needed
     let animTicker = null;
     function ensureAnimTicker() {
@@ -477,27 +490,6 @@ function main() {
     history.push({ who: 'assistant', text: 'Tip: Press Shift+D or type /demo to run a quick tour.', ts: Date.now() });
 
     return () => { try { timers.dispose(); } catch {} };
-
-    // Zoned selection mode toggle: Shift+S toggles app-driven selection with mouse
-    let zonedSelect = false;
-    // Default: enable mouse in parser but keep it off so native selection works
-    try { keys.setMouseEnabled(false); } catch {}
-
-    keys.on('key', (evt) => {
-      // Toggle zoned selection
-      if (evt.name === 'S') {
-        zonedSelect = !zonedSelect;
-        try { keys.setMouseEnabled(zonedSelect); } catch {}
-        return;
-      }
-      // Route mouse presses to zones when zoned selection is on
-      if (zonedSelect && (evt.name === 'MouseDown' || evt.name === 'MouseUp')) {
-        if (overlays.isOpen()) return;
-        const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
-        if (within(histBox)) { if (historyView.handleMouse(evt)) sched.requestFrame(); return; }
-        if (within(inputBox)) { if (input.handleMouse(evt)) sched.requestFrame(); return; }
-      }
-    });
 
   }, { loop: false, enableMouse: true });
 }
