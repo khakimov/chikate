@@ -24,9 +24,10 @@ The basics
 - Input
   - Use `KeyParser` for normalized keys and bracketed paste.
   - Use `FocusManager` to route keys. Tab switches focus; overlays intercept first.
+  - Ownership: printable keys go to the focused widget (usually the input). Global shortcuts should be non‑printable (F‑keys, Ctrl combos) and `/commands` handled in `onSubmit`.
 - Popups
   - Use `OverlayStack`. Topmost overlay blocks input below.
-  - `Popup('Help').borderless().body(text).open(overlays)`.
+  - `Popup('Help').body(text).open(overlays)`. Default is non‑destructive: background stays visible; set `backdrop: true` to dim.
 - Themes
   - `setTheme('legacy'|'dark'|'light')`, or `cycleTheme()`.
   - Use theme tokens for colors; prefer bold/dim/invert for the legacy look.
@@ -41,6 +42,7 @@ Common patterns
   - Use `HistoryView` to draw scrollable logs: timestamps, role colors, PgUp/PgDn.
 - Input field
   - `InputField` supports editing, wrap, and a suggestion dropdown above the input.
+  - Handle commands in `onSubmit` (e.g., `/help`, `/clear`) instead of binding printable keys globally.
 - Progress
   - `ProgressBar` draws a solid fill bar. For logs, use `renderProgressLine(...)`.
 

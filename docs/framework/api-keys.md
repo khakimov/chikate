@@ -23,3 +23,8 @@ Keys Mapper
 Notes
 - The parser recognizes common arrows, Home/End/Delete, PgUp/PgDn, F2/F3, Tab/Shift+Tab, Backspace, Enter, Ctrl+A..Z, and printable chars.
 - While parsing a paste, all content until the end marker is emitted as one `paste` event.
+
+Binding guidelines (reasoning‑first)
+- Treat printable keys as input; avoid global bindings on printable characters (e.g., “?”).
+- Prefer non‑printable shortcuts for global actions (F‑keys, Ctrl combos).
+- Handle `/commands` in `onSubmit` — predictable and agent‑friendly.
