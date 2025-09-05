@@ -472,6 +472,23 @@ function main() {
     history.push({ who: 'assistant', text: 'Tip: Press Shift+D or type /demo to run a quick tour.', ts: Date.now() });
 
     return () => { try { timers.dispose(); } catch {} };
+    // Zoned selection mode toggle: Shift+S toggles app-driven selection with mouse
+    let zonedSelect = false;
+    keys.on('key', (evt) => {
+      if (evt.name === 'S') {
+        zonedSelect = !zonedSelect;
+        try { keys.setMouseEnabled(zonedSelect); } catch {}
+      }
+      if (evt.type === 'mouse' && zonedSelect) {
+        // Route mouse events to the appropriate zone
+        if (overlays.isOpen()) return;
+        // History zone
+        const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
+        if (within(histBox)) { if (historyView.handleMouse(evt)) sched.requestFrame(); return; }
+        if (within(inputBox)) { if (input.handleMouse(evt)) sched.requestFrame(); return; }
+      }
+    });
+
   }, { loop: false, enableMouse: false });
 }
 

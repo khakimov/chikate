@@ -56,6 +56,10 @@ class InputField {
     this.suggestOpen = false;
     this.suggestIndex = 0;
     this._colPref = null; // preferred column for vertical navigation
+    // Selection
+    this.selActive = false;
+    this.selAnchor = null; // char index
+    this.selCursor = null; // char index
   }
 
   setValue(v) {
@@ -393,12 +397,36 @@ class InputField {
     const pos = map[Math.min(this.cursor, map.length - 1)] || { row: 0, col: 0 };
     this._ensureCursorVisible(innerH, pos.row);
 
-    // Render only visible window
+    // Render only visible window with selection
     const start = this.scrollY;
     const end = Math.min(lines.length, start + innerH);
+    const selA = this.selActive && this.selAnchor != null && this.selCursor != null ? Math.min(this.selAnchor, this.selCursor) : -1;
+    const selB = this.selActive && this.selAnchor != null && this.selCursor != null ? Math.max(this.selAnchor, this.selCursor) : -1;
+    const indexAt = (row, col) => {
+      // Map row/col back to char index by scanning the wrap map
+      const { map } = this._computeWrap(innerW);
+      for (let i = 0; i < map.length; i++) if (map[i].row === row && map[i].col === col) return i;
+      return -1;
+    };
     for (let r = start; r < end; r++) {
       const yy = innerY + (r - start);
       const text = lines[r] || '';
+      if (selA >= 0 && selB >= 0) {
+        // Compute selection columns on this row by finding index ranges
+        const rowStartIdx = indexAt(r, 0);
+        const rowEndIdx = indexAt(r, text.length);
+        const s = Math.max(selA, rowStartIdx);
+        const e = Math.min(selB, rowEndIdx);
+        if (s < e) {
+          const pre = text.slice(0, s - rowStartIdx);
+          const mid = text.slice(s - rowStartIdx, e - rowStartIdx);
+          const post = text.slice(e - rowStartIdx);
+          if (pre) Text(screen, { x: innerX, y: yy, text: pre, style: { fg: color, maxWidth: innerW } });
+          if (mid) Text(screen, { x: innerX + pre.length, y: yy, text: mid, style: { fg: color, attrs: 4, maxWidth: innerW } });
+          if (post) Text(screen, { x: innerX + pre.length + mid.length, y: yy, text: post, style: { fg: color, maxWidth: innerW } });
+          continue;
+        }
+      }
       Text(screen, { x: innerX, y: yy, text, style: { fg: color, maxWidth: innerW } });
     }
 
@@ -413,5 +441,22 @@ class InputField {
     }
   }
 }
+
+// Mouse selection support
+InputField.prototype.handleMouse = function(evt) {
+  const { x, y, width: w, height: h } = this.cfg;
+  const innerX = x + 2, innerY = y + 1, innerW = w - 4, innerH = h - 2;
+  const rx = evt.x - innerX, ry = evt.y - innerY;
+  if (rx < 0 || ry < 0 || rx >= innerW || ry >= innerH) return false;
+  const { map } = this._computeWrap(innerW);
+  // Find closest index matching row/col (clip to line length)
+  const lineLen = (row) => { const { lines } = this._computeWrap(innerW); return (lines[row] || '').length; };
+  const col = Math.max(0, Math.min(lineLen(ry), rx));
+  let idx = 0;
+  for (let i = 0; i < map.length; i++) { if (map[i].row === ry && map[i].col === col) { idx = i; break; } }
+  if (evt.name === 'MouseDown') { this.selActive = true; this.selAnchor = idx; this.selCursor = idx; return true; }
+  if (evt.name === 'MouseUp') { if (this.selActive) { this.selCursor = idx; return true; } }
+  return false;
+};
 
 module.exports = { InputField };

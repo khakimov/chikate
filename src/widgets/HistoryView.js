@@ -258,6 +258,36 @@ class HistoryView {
     }
   }
 
+  handleMouse(evt) {
+    if (!this.selectionEnabled) return false;
+    const { x, y } = this._rect;
+    const showBorder = this.border !== 'none';
+    const pad = showBorder ? 2 : 0;
+    const innerX = x + pad + this.paddingX;
+    const innerY = y + (showBorder ? 1 : 0);
+    const innerW = Math.max(1, this._rect.width - pad * 2 - this.paddingX * 2);
+    const innerH = this._rect.height - (showBorder ? 2 : 0);
+    const lines = this._flattenLines(innerW);
+    const total = lines.length;
+    const lx = evt.x - innerX;
+    const ly = evt.y - innerY;
+    if (ly < 0 || ly >= innerH) return false;
+    const lineIndex = Math.max(0, Math.min(total - 1, this.scroll + ly));
+    const line = (lines[lineIndex] && lines[lineIndex].text) || '';
+    const col = Math.max(0, Math.min(line.length, lx));
+    if (evt.name === 'MouseDown') {
+      this.selectionActive = true;
+      this.selAnchor = { line: lineIndex, col };
+      this.selCursor = { line: lineIndex, col };
+      return true;
+    }
+    if (evt.name === 'MouseUp') {
+      if (this.selectionActive) { this.selCursor = { line: lineIndex, col }; return true; }
+      return false;
+    }
+    return false;
+  }
+
   _formatTs(ts) {
     const d = ts ? new Date(ts) : new Date();
     if (this.timestampMode === 'relative') {

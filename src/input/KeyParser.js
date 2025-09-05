@@ -13,6 +13,7 @@ class KeyParser {
     this._attached = null;
     this._pasteBuf = '';
     this._pasting = false;
+    this._mouseOn = !!enableMouse;
   }
 
   attach(stdin) {
@@ -20,7 +21,7 @@ class KeyParser {
     this._attached = stdin;
     stdin.on('data', this._onData);
     if (this.enableBP) this._enableBracketedPaste();
-    if (this.enableMouse) this._enableMouse();
+    if (this.enableMouse) { this._enableMouse(); this._mouseOn = true; }
     return () => this.detach();
   }
 
@@ -29,7 +30,13 @@ class KeyParser {
     try { this._attached.off('data', this._onData); } catch {}
     this._attached = null;
     if (this.enableBP) this._disableBracketedPaste();
-    if (this.enableMouse) this._disableMouse();
+    if (this.enableMouse) { this._disableMouse(); this._mouseOn = false; }
+  }
+
+  setMouseEnabled(on) {
+    if (!this.enableMouse) return;
+    if (on && !this._mouseOn) { this._enableMouse(); this._mouseOn = true; }
+    if (!on && this._mouseOn) { this._disableMouse(); this._mouseOn = false; }
   }
 
   on(type, cb) { if (this._handlers[type]) this._handlers[type].add(cb); return () => this.off(type, cb); }
@@ -90,8 +97,14 @@ class KeyParser {
         const mm = rest.match(/^\u001b\x5b<(\d+);(\d+);(\d+)([Mm])/);
         if (mm) {
           const btn = parseInt(mm[1], 10);
-          if (btn === 64) events.push({ type: 'key', name: 'WheelUp', seq: mm[0] });
-          else if (btn === 65) events.push({ type: 'key', name: 'WheelDown', seq: mm[0] });
+          const x = parseInt(mm[2], 10) - 1;
+          const y = parseInt(mm[3], 10) - 1;
+          if (btn === 64) events.push({ type: 'key', name: 'WheelUp', seq: mm[0], x, y });
+          else if (btn === 65) events.push({ type: 'key', name: 'WheelDown', seq: mm[0], x, y });
+          else {
+            const kind = mm[4] === 'M' ? 'MouseDown' : 'MouseUp';
+            events.push({ type: 'mouse', name: kind, x, y, button: btn });
+          }
           // Advance past the full mouse sequence
           i += mm[0].length - 1;
           continue;
