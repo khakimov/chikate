@@ -1,11 +1,17 @@
-This docs folder explains the demo TUI composed in `scripts/logo_input_combo.js`, and how you could build a small, ergonomic TUI framework.
+Chikate Docs
 
-Documents
-- logo_input_combo.md: A deep dive into the script: layout model, rendering, keyboard handling, animations, help popup, and thinking/chat history.
-- status-history.md: The extensible status entry model (Thinking/Typing/Waiting) integrated as part of the chat history.
- 
-- tui-framework.md: How to design a tiny TUI framework with a layout/paint pipeline, screen buffer, and a widget composition model.
-- keyboard-and-terminal.md: Practical terminal behavior notes (key sequences, alt-screen, bracketed paste, colors, mouse), and cross-terminal tips.
- - framework/api-screen.md, api-scheduler.md, api-layout.md, api-widgets.md, api-theme.md, api-input.md, api-history.md, api-withapp.md, api-keys.md, api-timer.md: concise API stubs for core modules and helpers.
+Comfortable terminals for people who build. Chikate is a tiny TUI toolkit with a bias toward developer happiness: readable APIs, sensible defaults, and clear escape hatches when you need them. These docs are intentionally small, fast to scan, and written in plain English.
 
-If you are reading this first, start with `logo_input_combo.md`.
+Start here
+- Getting Started: install, run an example, and draw your first UI — see ./getting-started.md
+- Concepts: short, practical explanations of the moving parts — see ./concepts.md
+- API: a single, consolidated reference for the things you actually use — see ./api.md
+- Guides: focused recipes for real features (selection, input, layout, theming) — see ./guides.md
+
+What to expect
+- Small surface area: a few well-factored modules over a sprawling framework.
+- Predictable behavior: matching what terminals actually do (mouse, keys, paste, OSC-52).
+- Friendly errors and consistent naming to keep the flow.
+
+Tip
+- The demo app shows most features in motion. Run: `node chikate/examples/app_demo.js`
