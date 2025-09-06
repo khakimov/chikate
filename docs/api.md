@@ -40,6 +40,22 @@ Widgets
 - HistoryView: `src/widgets/HistoryView.js` — scrollable history with selection.
   - Selection: `hasSelection()`, `getSelectedText()`, `clearSelection()`, `onSelectionChanged`, `handleMouse(evt)`
   - Keys: `handleKey(key)` supports scroll (arrows, PgUp/PgDn, Home/End, j/k, g/G)
+  - Folds (disclosure blocks):
+    - Item shape: `{ who: 'status', kind: 'fold', key, title, body, open?, streaming? }`
+    - Click the header to toggle; body wraps and scrolls with history.
+    - Spinner: set `streaming: true` to show an animated spinner in the header.
+    - Global expand-all: `foldAllExpanded` flag; `setFoldAllExpanded(v)`, `toggleFoldAll()`.
+    - Hooks: `onItemToggled(item)`, `onFoldAllChanged(v)`.
+
+Example — add a foldable Thinking block
+```js
+history.push({
+  who: 'status', kind: 'fold', key: 'thinking-1', title: 'Thinking',
+  body: analysisText, open: false, streaming: true
+});
+// Toggle all folds programmatically
+historyView.toggleFoldAll();
+```
 
 InputField
 - Module: `src/widgets/InputField.js`
