@@ -1,0 +1,3 @@
+# Exclude large media from the npm package
+docs/high_quality_chikate.gif
+
