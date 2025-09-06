@@ -33,6 +33,9 @@ Selection
 Theme
 - A small palette for consistent colors; changeable at runtime.
 - Get with `getTheme()`, change with `setTheme(name)`.
+- Text attributes: bold(1), dim(2), invert(4), italic(8). Combine as needed.
+- HistoryView styling: per‑role overrides via `style.fgByRole` and `style.attrsByRole`.
+- Fold bodies (e.g., Thinking) default to dim+italic for unobtrusive detail.
 
 Status
 - `StatusManager` stacks small status widgets (e.g., Thinking/Typing/Debug) and paints them in a reserved area.
