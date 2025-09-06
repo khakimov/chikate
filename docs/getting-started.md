@@ -12,7 +12,7 @@ Run the demo
 
 Hello, box
 ```js
-const { Screen, widgets: { Box, Text } } = require('chikate');
+const { Screen, widgets: { Box, Text } } = require('@chikate/chikate');
 
 const screen = new Screen();
 const { width: W, height: H } = screen.size();
@@ -25,7 +25,7 @@ screen.endFrame();
 Ergonomic loop: withApp
 - Use `withApp` to set up input, a fast scheduler, timers, and cleanup without boilerplate.
 ```js
-const { withApp } = require('chikate');
+const { withApp } = require('@chikate/chikate');
 
 withApp(({ screen, sched, keys }) => {
   function paint() {

@@ -1,5 +1,5 @@
 {
-  "name": "chikate",
+  "name": "@chikate/chikate",
   "version": "0.2.0",
   "description": "Chikate – a small TUI library with a deterministic renderer and friendly APIs.",
   "main": "src/index.js",
@@ -13,6 +13,9 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "demo:hello": "node examples/hello.js",
     "demo:ticker": "node examples/ticker.js",
@@ -24,9 +27,19 @@
     "demo:progress": "node examples/progress_demo.js",
     "demo:fluent": "node examples/fluent_quickstart.js",
     "demo:keys-timer": "node examples/keyparser_timer_demo.js",
-    "pack": "npm pack"
+    "pack": "npm pack",
+    "release:public": "npm publish --access public"
   },
   "keywords": ["tui", "terminal", "ui", "cli", "renderer"],
   "author": "",
   "license": "MIT"
+  ,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/khakimov/chikate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/khakimov/chikate/issues"
+  },
+  "homepage": "https://github.com/khakimov/chikate#readme"
 }

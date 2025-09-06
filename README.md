@@ -2,7 +2,7 @@
 
 A small TUI library with a clean renderer and simple, readable APIs.
 
-![Chikate demo](docs/high_quality_chikate.gif)
+![Chikate demo](https://raw.githubusercontent.com/khakimov/chikate/main/docs/high_quality_chikate.gif)
 
 ## Introduction
 Chikate helps you build fast, flicker‑free terminal apps. It focuses on a deterministic renderer, sane input handling, and APIs that read like English.
@@ -21,7 +21,7 @@ Chikate helps you build fast, flicker‑free terminal apps. It focuses on a dete
 
 ## Install
 ```
-npm i chikate
+npm i @chikate/chikate
 ```
 
 ## Runtime
@@ -31,7 +31,7 @@ npm i chikate
 
 ## Quickstart
 ```js
-const { withApp, Page, widgets: { InputField, HistoryView }, OverlayStack, theme } = require('chikate');
+const { withApp, Page, widgets: { InputField, HistoryView }, OverlayStack, theme } = require('@chikate/chikate');
 
 withApp(({ screen, sched, stdin, keys, timers }) => {
   const history = new HistoryView({ title: 'History', showTimestamps: true });
