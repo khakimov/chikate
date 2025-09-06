@@ -34,6 +34,7 @@ let cleaned = false;
 function cleanup() {
   if (cleaned) return;
   cleaned = true;
+  try { process.stdin.setRawMode && process.stdin.setRawMode(false); } catch {}
   process.stdout.write('\u001b[0m'); // reset SGR
   process.stdout.write('\u001b[?25h'); // show cursor
   process.stdout.write('\u001b[?1049l'); // leave alt screen
