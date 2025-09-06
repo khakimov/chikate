@@ -37,8 +37,11 @@ function main() {
     history.push({ who: 'status', text: 'Debug: selection test ready. Try dragging in history.', ts: Date.now() });
     history.push({ who: 'you', text: 'Hello there — this is a selectable line.', ts: Date.now() });
     history.push({ who: 'assistant', text: 'And this is a reply that wraps a bit to help test selection across multiple lines. Keep dragging!', ts: Date.now() });
+    // Legacy-like foldable "Thinking" block seeded for click-to-toggle
+    history.push({ who: 'status', kind: 'fold', key: 'thinking-seeded', title: 'Thinking', open: false, body: 'The user has just written a short prompt. This block mirrors the legacy disclosure: click the header to expand or collapse the analysis. The body text wraps to width and scrolls with history.' });
     const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2, barFor: 'all', selectionEnabled: true });
     historyView.onSelectionChanged = () => sched.requestFrame();
+    historyView.onItemToggled = () => sched.requestFrame();
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
     // Fancy ASCII logo (ported from scripts/logo_input_combo.js)
@@ -402,6 +405,7 @@ function main() {
       }
       if (evt.name === 'F4') { focus.setFocus(historyNode); historyView.handleKey('v'); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
+      if (evt.name === 'Ctrl+E') { historyView.toggleFoldAll(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
       if (evt.name === 'B') { popupBorder = (popupBorder === 'box') ? 'none' : 'box'; openHelp(); return; }
@@ -493,7 +497,8 @@ function main() {
         const anyStatus = statuses.getActive().length > 0;
         const showLogo = !firstMessageSent && logo.visible;
         const showAscii = !firstMessageSent && asciiLogoOn;
-        if (anyStatus || showLogo || showAscii) sched.requestFrame();
+        const anyFoldStreaming = history.some(it => it && it.kind === 'fold' && it.streaming);
+        if (anyStatus || showLogo || showAscii || anyFoldStreaming) sched.requestFrame();
         else { timers.clear(animTicker); animTicker = null; }
       });
     }
@@ -540,7 +545,7 @@ function main() {
       say('Popups block input while open. Use Up/Down or PgUp/PgDn to scroll long content.');
 
       // Thinking/Typing statuses
-      say('Now: transient status banners (Thinking, then Typing). They stack above the input and stop automatically.');
+      say('Now: transient status banners (Thinking, then Typing). They stack above the input and stop automatically. Click the foldable “Thinking” in history to expand/collapse. Press Ctrl+E to expand/collapse all folds.');
       act(() => { if (!statuses.isOpen('thinking')) { thinking.start(); thinking.setOpen(true); statuses.open('thinking'); ensureAnimTicker(); } }, /*dwell*/ 1200);
       act(() => { if (!statuses.isOpen('typing')) { typing.start(); typing.setOpen(true); statuses.open('typing'); ensureAnimTicker(); } }, /*dwell*/ 1600);
       act(() => { thinking.stop(); statuses.close('thinking'); });

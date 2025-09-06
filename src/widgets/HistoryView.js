@@ -7,7 +7,7 @@ const { SelectionController } = require('../selection/SelectionController');
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
 class HistoryView {
-  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1, barFor = undefined, barChar = undefined, barPad = undefined, selectionEnabled = true } = {}) {
+  constructor({ items = [], showTimestamps = false, title = 'History', style = {}, maxItems = 1000, timestampMode = 'time', showSeconds = false, border = 'box', anchorBottom = false, itemGap = 1, paddingX = 2, showSender = false, senderFormat = null, userBar = true, userBarChar = '┃', userBarPad = 1, barFor = undefined, barChar = undefined, barPad = undefined, selectionEnabled = true, foldAllExpanded = false } = {}) {
     this.items = Array.isArray(items) ? items : [];
     this.showTimestamps = !!showTimestamps;
     this.title = title;
@@ -49,8 +49,13 @@ class HistoryView {
     this._sel = new SelectionController();
     this._sel.addListener(() => { if (typeof this.onSelectionChanged === 'function') try { this.onSelectionChanged(); } catch {} });
     this._lineStarts = [];
+    this._lineMeta = [];
     this._colPref = 0;
+    this.foldAllExpanded = !!foldAllExpanded;
   }
+
+  setFoldAllExpanded(v) { this.foldAllExpanded = !!v; if (typeof this.onFoldAllChanged === 'function') { try { this.onFoldAllChanged(this.foldAllExpanded); } catch {} } }
+  toggleFoldAll() { this.setFoldAllExpanded(!this.foldAllExpanded); }
 
   hasSelection() { return this._sel && this._sel.hasSelection && this._sel.hasSelection(); }
 
@@ -304,7 +309,7 @@ class HistoryView {
   }
 
   handleMouse(evt) {
-    if (!this.selectionEnabled) return false;
+    // Hit-test for foldable headers first (always clickable)
     const { x, y } = this._rect;
     const showBorder = this.border !== 'none';
     const pad = showBorder ? 2 : 0;
@@ -327,6 +332,23 @@ class HistoryView {
     const line = lineObj.text || '';
     const barOffset = lineObj.bar ? (this.userBarChar.length + this.userBarPad) : 0;
     const col = Math.max(0, Math.min(line.length, lx - barOffset));
+    // Toggle fold headers on MouseDown
+    const meta = (this._lineMeta[lineIndex] || null);
+    if (evt.name === 'MouseDown' && meta && meta.type === 'fold-header' && typeof meta.itemIndex === 'number') {
+      const it = this.items[meta.itemIndex];
+      if (it && it.kind === 'fold') {
+        // Toggle with awareness of global expand-all
+        const effectiveOpen = this.foldAllExpanded ? (it.open !== false) : (it.open === true);
+        if (this.foldAllExpanded) {
+          it.open = !effectiveOpen; // false to force close, true to force open
+        } else {
+          it.open = !effectiveOpen;
+        }
+        if (typeof this.onItemToggled === 'function') { try { this.onItemToggled(it); } catch {} }
+        return true; // swallow selection start
+      }
+    }
+    if (!this.selectionEnabled) return false;
     this._rebuildLineStarts(innerW);
     const at = (this._lineStarts[lineIndex] || 0) + col;
     if (evt.name === 'MouseDown') {
@@ -379,9 +401,32 @@ class HistoryView {
     const t = getTheme();
     const innerW = Math.max(1, (totalWidth | 0));
     const out = [];
+    this._lineMeta = [];
+    const spinnerFrames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+    const spinnerIdx = Math.floor((Date.now() / 80) % spinnerFrames.length);
     for (const m of this.items) {
       const role = (m && m.who) || 'you';
       const fg = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : t.historyUser;
+      // Foldable status item (e.g., Thinking)
+      if (m && m.kind === 'fold') {
+        const effectiveOpen = this.foldAllExpanded ? (m.open !== false) : (m.open === true);
+        const chevron = effectiveOpen ? '▼' : '▶';
+        const spin = m.streaming ? (spinnerFrames[spinnerIdx] + ' ') : '';
+        const titleText = `${chevron} ${spin}${m.title || 'Thinking'}`;
+        out.push({ text: titleText, fg, tsLen: 0, senderLen: 0, bar: false, barFg: null });
+        this._lineMeta.push({ type: 'fold-header', itemIndex: this.items.indexOf(m) });
+        if (effectiveOpen && m.body) {
+          const bodyWrapped = wrapToWidth(String(m.body), innerW);
+          for (let i = 0; i < bodyWrapped.length; i++) {
+            out.push({ text: bodyWrapped[i], fg: t.hint, tsLen: 0, senderLen: 0, bar: false, barFg: null });
+            this._lineMeta.push({ type: 'fold-body', itemIndex: this.items.indexOf(m), line: i });
+          }
+        }
+        // Gap after fold item
+        for (let g = 0; g < this.itemGap; g++) { out.push({ text: '', fg, tsLen: 0, userBar: false }); this._lineMeta.push({ type: 'gap' }); }
+        continue;
+      }
+      // Regular message item
       const ts = this.showTimestamps ? this._formatTs(m.ts) + ' ' : '';
       const wantBar = (typeof m?.bar === 'boolean') ? !!m.bar : this.barRoles.has(role);
       const sender = this.showSender ? (this.senderFormat(role) + ': ') : '';
@@ -396,9 +441,10 @@ class HistoryView {
         const fallback = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : (t.historyUser || t.border);
         const barFg = (m && (m.barFg || m.userBarFg)) || styleBar || fallback;
         out.push({ text: line, fg, tsLen, senderLen, bar: wantBar, barFg });
+        this._lineMeta.push({ type: 'line' });
       }
       // insert visual gap between messages to improve readability
-      for (let g = 0; g < this.itemGap; g++) out.push({ text: '', fg, tsLen: 0, userBar: false });
+      for (let g = 0; g < this.itemGap; g++) { out.push({ text: '', fg, tsLen: 0, userBar: false }); this._lineMeta.push({ type: 'gap' }); }
     }
     return out;
   }
