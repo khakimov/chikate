@@ -26,7 +26,7 @@ The basics
   - Use `KeyParser` for normalized keys, bracketed paste, and optional mouse wheel.
   - Use `FocusManager` to route keys. Tab switches focus; overlays intercept first.
   - Ownership: printable keys go to the focused widget (usually the input). Global shortcuts should be non‑printable (F‑keys, Ctrl combos) and `/commands` handled in `onSubmit`.
-  - Exit: prefer Ctrl+C. The examples use a double‑press window (1s) to prevent accidental exits; avoid binding a plain `q` to quit.
+  - Exit: prefer Ctrl+C. The examples use a double‑press window (1s). If a history selection exists, Ctrl+C copies selection (OSC 52) and clears it; the next Ctrl+C can exit. Avoid binding a plain `q` to quit.
 - Popups
   - Use `OverlayStack`. Topmost overlay blocks input below.
   - `Popup('Help').body(text).open(overlays)`. Default is non‑destructive: background stays visible; set `backdrop: true` to dim.
@@ -42,6 +42,7 @@ Avoid flicker
 
 Common patterns
   - Use `HistoryView` to draw scrollable logs: timestamps, role colors, PgUp/PgDn, mouse wheel.
+  - Selection: enable `selectionEnabled` (default). Mouse down/drag/up selects only inside history. Show a tiny hint near the input when a selection exists (e.g., “Ctrl+C to copy selection”).
   - For a modern feed, set `border: 'none'`, `anchorBottom: true`, and `itemGap: 1`.
   - Status banners (Thinking/Typing) are transient UI; avoid logging them to history.
 - Input field

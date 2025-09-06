@@ -39,11 +39,12 @@ HistoryView
 - Options: `{ items, showTimestamps=false, title='History', style, maxItems=1000, timestampMode='time', showSeconds=false, border='box'|'none', anchorBottom=false, itemGap=1, paddingX=2, showSender=false, senderFormat?, userBar=true, userBarChar='┃', userBarPad=1 }`.
 - Layout: `border='none'` removes the frame (clean feed). `anchorBottom=true` paints from the bottom up. `itemGap` inserts blank lines between messages. `paddingX` adjusts horizontal padding.
 - Sender label: `showSender` prints a sender label (You/Assistant/Status by default via `senderFormat(who)`), styled with `style.senderFg`.
-- User bar: For `who: 'you'`, draws a colorful full-height leading bar on all wrapped lines.
-  - `userBar`: enable/disable.
-  - `userBarChar`: choose the glyph (default '┃').
-  - `userBarPad`: spaces after the bar.
-  - Colors: use `style.userBarFg` for a default color, or set `userBarFg` on individual items to override. Falls back to theme (user color, then border) when not provided.
+- Role bars: Draw colorful full-height leading bars for selected roles.
+  - `barFor`: 'all' | 'you' | 'assistant' | 'status' | string[] (default ['you']). Back-compat: `userBar: false` disables the 'you' bar.
+  - `barChar` (alias `userBarChar`): bar glyph (default '┃').
+  - `barPad` (alias `userBarPad`): spaces after the bar.
+  - Colors: global `style.barFgByRole = { you, assistant, status, default }`, or legacy `style.userBarFg` for 'you'.
+    - Per-item override: set `barFg` (or `userBarFg`) on a history item. Fallback: theme role color, then border color.
 
 PopupOverlay
 - `new PopupOverlay({ title='Help', body, footer, width=40, height=12, style?, border='box'|'none', backdrop=false })`

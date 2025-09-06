@@ -33,7 +33,12 @@ function main() {
 
     // History + logo
     const history = [];
-    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2 });
+    // Seed some initial messages so selection can be tested immediately
+    history.push({ who: 'status', text: 'Debug: selection test ready. Try dragging in history.', ts: Date.now() });
+    history.push({ who: 'you', text: 'Hello there — this is a selectable line.', ts: Date.now() });
+    history.push({ who: 'assistant', text: 'And this is a reply that wraps a bit to help test selection across multiple lines. Keep dragging!', ts: Date.now() });
+    const historyView = new HistoryView({ items: history, showTimestamps: false, title: '', timestampMode: 'time', border: 'none', anchorBottom: true, itemGap: 1, paddingX: 2, barFor: 'all', selectionEnabled: true });
+    historyView.onSelectionChanged = () => sched.requestFrame();
     let firstMessageSent = false;
     const logo = new Logo({ text: 'CHIKATE' });
     // Fancy ASCII logo (ported from scripts/logo_input_combo.js)
@@ -102,10 +107,17 @@ function main() {
     const typing = new ThinkingIndicator({ text: 'Typing', animateColors: true, palette: warm });
     statuses.add('typing', typing, { label: 'Typing' });
 
+    // Debug status: show zoned selection state and last mouse event
+    let debugText = '';
+    function setDebug(text){ debugText = String(text || ''); sched.requestFrame(); }
+    const debugWidget = { paint(screen, { x, y, width }) { Text(screen, { x, y, text: (debugText || '').slice(0, Math.max(0, width-1)), style: { fg: getTheme().hint } }); } };
+    statuses.add('debug', debugWidget, { label: 'Debug' });
+    statuses.open('debug');
+
     // Commands
     const commands = [
       { text: '/help', desc: 'Open help popup' },
-      { text: '/ascii <path?>', desc: 'Show ASCII poster from file (default: docs/ascii.md)' },
+      { text: '/selection', desc: 'Toggle zoned selection (history/input only)' },
       { text: '/logo', desc: 'Toggle logo visibility' },
       { text: '/status <label>', desc: 'Show a status banner with label' },
       { text: '/status off', desc: 'Close dynamic statuses' },
@@ -158,9 +170,10 @@ function main() {
           }
           input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/scene ')) { const name = trimmed.slice('/scene '.length).trim(); if (name) history.push({ who: 'status', text: `Scene: ${name}`, ts: Date.now() }); input.setValue(''); sched.requestFrame(); return; }
-        if (trimmed === '/ascii' || trimmed.startsWith('/ascii ')) {
-          const arg = trimmed.slice('/ascii'.length).trim();
-          openAscii(arg || null);
+        if (trimmed === '/selection') {
+          zonedSelect = !zonedSelect;
+          try { keys.setMouseEnabled(zonedSelect); } catch {}
+          setDebug(`zoned=${zonedSelect} • mouse=${zonedSelect ? 'on' : 'off'}`);
           input.setValue(''); sched.requestFrame(); return;
         }
         if (trimmed === '/clear') { history.length = 0; input.setValue(''); sched.requestFrame(); return; }
@@ -207,8 +220,10 @@ function main() {
       const body = `Demo App\n\n` +
         `- Startup logo hides on first message.\n` +
         `- Thinking and Typing show above input; they can overlap and stack.\n` +
-        `- Commands: /help, /logo, /think, /typing, /clear.\n` +
-        `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n\n` + Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
+        `- Commands: /help, /selection (toggle), /logo, /think, /typing, /clear.\n` +
+        `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n` +
+        `- Selection: /selection toggles zoned selection (history/input only) vs native selection.\n\n` +
+        Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
       const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder, style: { style: 'rounded', borderFooter: 'F1 Help', borderFooterAlign: 'right', borderFooterPosition: 'top' } });
       popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
       overlays.push(popup);
@@ -311,6 +326,13 @@ function main() {
         sy -= 1; if (sy < 0) break;
       }
       input.paint(screen);
+      // Selection/copy hint below input
+      const hintY = (inputBox.y + inputHeight) < H ? (inputBox.y + inputHeight) : (H - 1);
+      if (selectionCopiedUntil && Date.now() < selectionCopiedUntil) {
+        Text(screen, { x: inputBox.x + 2, y: hintY, text: 'Selection copied!', style: { fg: getTheme().hint } });
+      } else if (historyView.hasSelection()) {
+        Text(screen, { x: inputBox.x + 2, y: hintY, text: 'Ctrl+C to copy selection', style: { fg: getTheme().hint } });
+      }
       // Draw colored Ctrl+C confirmation hint centered below input
       if (exitConfirm) {
         const hintY = (inputBox.y + inputHeight) < H ? (inputBox.y + inputHeight) : (H - 1);
@@ -342,6 +364,17 @@ function main() {
     }
 
     // Key bindings (normalized)
+    // Clipboard helper (OSC-52)
+    function copyOSC52(text) {
+      try {
+        const b64 = Buffer.from(String(text), 'utf8').toString('base64');
+        process.stdout.write(`\u001b]52;c;${b64}\u0007`);
+        return true;
+      } catch { return false; }
+    }
+
+    let selectionCopiedUntil = 0;
+
     keys.on('key', (evt) => {
       // Mouse wheel: scroll overlay or history
       if (evt.name === 'WheelUp' || evt.name === 'WheelDown') {
@@ -355,6 +388,19 @@ function main() {
       }
       if (overlays.isOpen()) return;
       if (evt.name === 'F1') { openHelp(); return; }
+      if (evt.name === 'Ctrl+C') {
+        if (historyView.hasSelection()) {
+          const txt = historyView.getSelectedText();
+          if (txt) {
+            copyOSC52(txt);
+            historyView.clearSelection(); // reset selection so next Ctrl+C can exit
+            selectionCopiedUntil = Date.now() + 1500;
+            sched.requestFrame();
+          }
+          return; // swallow this Ctrl+C; next one will trigger exit
+        }
+      }
+      if (evt.name === 'F4') { focus.setFocus(historyNode); historyView.handleKey('v'); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+T' || evt.name === 'F2') { toggleThinking(); sched.requestFrame(); return; }
       if (evt.name === 'Ctrl+Y' || evt.name === 'F3') { toggleTyping(); sched.requestFrame(); return; }
       if (evt.name === 'T') { require('../src/theme/theme').cycleTheme(); sched.requestFrame(); return; }
@@ -365,12 +411,29 @@ function main() {
     // Raw input for editing
     stdin.on('data', (key) => {
       // Allow Ctrl+C to trigger exit confirmation even when an overlay is open
-      if (overlays.isOpen() && key === '\u0003') { requestExit(); return; }
+      if (key === '\u0003') {
+        if (historyView.hasSelection()) {
+          const txt = historyView.getSelectedText();
+          if (txt) {
+            copyOSC52(txt);
+            historyView.clearSelection();
+            selectionCopiedUntil = Date.now() + 1500;
+            sched.requestFrame();
+          }
+          return;
+        }
+        if (overlays.isOpen()) { requestExit(); return; }
+      }
       if (overlays.isOpen()) {
         const used = overlays.handleKey(key);
         // Repaint to reflect scroll or content changes while popup remains open
         sched.requestFrame();
         return;
+      }
+      // While suggestions are open, route Tab directly to the input (don't change focus)
+      if (key === '\t' && input.suggestOpen) {
+        const used = input.handleKey(key);
+        if (used) { sched.requestFrame(); return; }
       }
       // Prefer history scrolling for PgUp/PgDn regardless of focus
       if (key === '\u001b[5~' || key === '\u001b[6~') {
@@ -383,6 +446,43 @@ function main() {
         if (cur && cur.id === 'history') consumed = historyView.handleKey(key);
       }
       if (consumed) sched.requestFrame();
+    });
+
+    // Zoned selection: default ON so app-driven selection works immediately
+    let zonedSelect = true;
+    try { keys.setMouseEnabled(true); } catch {}
+    setDebug(`zoned=${zonedSelect} • mouse=on`);
+    keys.on('key', (evt) => {
+      if (!zonedSelect) return;
+      if (evt.name === 'MouseDown' || evt.name === 'MouseUp' || evt.name === 'MouseDrag') {
+        if (overlays.isOpen()) return;
+        const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
+        if (within(histBox)) {
+          if (historyView.handleMouse(evt)) {
+            const len = historyView.getSelectedText().length;
+            setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=history • sel=${len}`);
+            sched.requestFrame();
+          } else {
+            setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=history`);
+          }
+          sched.requestFrame();
+          return;
+        }
+        if (within(inputBox)) { setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=input`); if (input.handleMouse(evt)) sched.requestFrame(); return; }
+      }
+    });
+    // Mouse channel emits MouseDown/Up; listen explicitly here
+    keys.on('mouse', (evt) => {
+      if (!zonedSelect) return;
+      if (overlays.isOpen()) return;
+      const within = (rect) => evt.x >= rect.x && evt.x < rect.x + rect.width && evt.y >= rect.y && evt.y < rect.y + rect.height;
+      if (within(histBox)) {
+        if (historyView.handleMouse(evt)) { const len = historyView.getSelectedText().length; setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=history • sel=${len}`); sched.requestFrame(); }
+        else { setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=history`); }
+        sched.requestFrame();
+        return;
+      }
+      if (within(inputBox)) { setDebug(`mouse:${evt.name} @ ${evt.x},${evt.y} • zone=input`); if (input.handleMouse(evt)) sched.requestFrame(); return; }
     });
 
     // Animation ticker only when needed
@@ -470,7 +570,8 @@ function main() {
     history.push({ who: 'assistant', text: 'Tip: Press Shift+D or type /demo to run a quick tour.', ts: Date.now() });
 
     return () => { try { timers.dispose(); } catch {} };
-  }, { loop: false });
+
+  }, { loop: false, enableMouse: true });
 }
 
 main();
