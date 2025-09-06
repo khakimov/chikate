@@ -42,3 +42,18 @@ LLM integration
 Troubleshooting
 - Clipboard: OSC‑52 works in most modern terminals; some need enabling “Allow clipboard write”.
 - Selection: only history is selectable by design; avoid mixing native terminal selection when zoned selection is on.
+
+Foldable “Thinking” (disclosure)
+- Pattern: show status analysis as a foldable block inside history.
+- Add an item:
+```js
+history.push({
+  who: 'status', kind: 'fold', key: 'thinking', title: 'Thinking',
+  body: longAnalysis, open: false, streaming: true
+});
+historyView.onItemToggled = () => sched.requestFrame();
+```
+- UX:
+  - Click the header (▸/▾ Thinking) to expand/collapse.
+  - While `streaming: true`, the header shows a spinner.
+  - Toggle all folds: `historyView.toggleFoldAll()` (bind to a key, e.g., Ctrl+E).

@@ -36,6 +36,7 @@ Theme
 
 Status
 - `StatusManager` stacks small status widgets (e.g., Thinking/Typing/Debug) and paints them in a reserved area.
+- Foldable status in history: represent analysis as a `kind: 'fold'` item; headers toggle open/closed, and a global expand‑all flag can reveal all.
 
 Overlays
 - `OverlayStack` manages popups and transient UI over your scene.
