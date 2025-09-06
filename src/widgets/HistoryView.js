@@ -2,6 +2,7 @@ const { Text } = require('./Text');
 const { Box } = require('./Box');
 const { getTheme } = require('../theme/theme');
 const { wrapToWidth, measureWidth } = require('../util/wrap');
+const { SelectionController } = require('../selection/SelectionController');
 
 // HistoryView: scrollable message list with optional timestamps and role styling.
 // Items: { who: 'you'|'assistant'|'status'|string, text: string, ts?: number }
@@ -43,12 +44,34 @@ class HistoryView {
     this.barRoles = roles;
     this.userBarChar = String((barChar != null ? barChar : userBarChar) || '┃');
     this.userBarPad = Math.max(0, (barPad != null ? barPad : userBarPad) | 0);
-    // Selection state
+    // Selection (controller-based)
     this.selectionEnabled = !!selectionEnabled;
-    this.selectionActive = false;
-    this.selAnchor = null; // { line, col }
-    this.selCursor = null; // { line, col }
+    this._sel = new SelectionController();
+    this._sel.addListener(() => { if (typeof this.onSelectionChanged === 'function') try { this.onSelectionChanged(); } catch {} });
+    this._lineStarts = [];
     this._colPref = 0;
+  }
+
+  hasSelection() { return this._sel && this._sel.hasSelection && this._sel.hasSelection(); }
+
+  clearSelection() { if (this._sel && this._sel.clear) this._sel.clear(); }
+
+  getSelectedText() {
+    if (!this._sel || !this._sel.hasSelection || !this._sel.hasSelection()) return '';
+    const innerW = Math.max(1, (this._rect.width | 0) - (this.border !== 'none' ? 4 : 0) - this.paddingX * 2);
+    const lines = this._flattenLines(innerW);
+    this._rebuildLineStarts(innerW);
+    const sel = this._sel.getRange();
+    const parts = [];
+    for (let i = 0; i < lines.length; i++) {
+      const L = lines[i] || { text: '' };
+      const startG = this._lineStarts[i];
+      const endG = startG + (L.text || '').length;
+      const a = Math.max(sel.start, startG);
+      const b = Math.min(sel.end, endG);
+      if (a < b) parts.push((L.text || '').slice(a - startG, b - startG));
+    }
+    return parts.join('\n');
   }
 
   setItems(items) {
@@ -67,6 +90,8 @@ class HistoryView {
 
     // If we are anchored or were previously at bottom, pin to end after update
     if (this.anchorBottom && (this._anchor || wasAtBottom)) { this.scrollToEnd(); this._newCount = 0; }
+    // Rebuild mapping for global selection
+    this._rebuildLineStarts(Math.max(1, (this._rect.width | 0) - (this.border === 'none' ? 0 : 4)));
   }
   push(item) { this.items.push(item); this._capItems(); this.scrollToEnd(); }
   clear() { this.items.length = 0; this.scroll = 0; }
@@ -77,6 +102,18 @@ class HistoryView {
     const maxTop = Math.max(0, lines.length - innerH);
     this.scroll = maxTop;
     this._anchor = !!this.anchorBottom;
+  }
+
+  _rebuildLineStarts(totalWidth) {
+    const lines = this._flattenLines(totalWidth);
+    this._lineStarts = new Array(lines.length);
+    let acc = 0;
+    for (let i = 0; i < lines.length; i++) {
+      this._lineStarts[i] = acc;
+      const text = (lines[i] && lines[i].text) || '';
+      acc += text.length;
+      if (i < lines.length - 1) acc += 1; // implicit newline between lines
+    }
   }
 
   handleKey(key) {
@@ -174,13 +211,9 @@ class HistoryView {
     const end = Math.min(total, start + innerH);
     const visibleCount = Math.max(0, end - start);
     const row0 = this.anchorBottom ? (innerY + Math.max(0, innerH - visibleCount)) : innerY;
-    // Selection range (flattened line/col)
-    let selA = null, selB = null;
-    if (this.selectionActive && this.selAnchor && this.selCursor) {
-      const a = this.selAnchor, b = this.selCursor;
-      if (a.line < b.line || (a.line === b.line && a.col <= b.col)) { selA = a; selB = b; }
-      else { selA = b; selB = a; }
-    }
+    // Selection via controller mapped to per-line
+    this._rebuildLineStarts(innerW);
+    const sel = this._sel.getRange && this._sel.getRange();
 
     const renderRun = (runText, runStartCol, x0, y0, fg, innerW, selectedRange) => {
       if (!runText) return x0;
@@ -197,7 +230,15 @@ class HistoryView {
       if (pre) { Text(screen, { x: x0, y: y0, text: pre, style: { fg, maxWidth: innerW } }); x0 += pre.length; }
       // selected
       const mid = runText.slice(selStart - runStartCol, selEnd - runStartCol);
-      if (mid) { Text(screen, { x: x0, y: y0, text: mid, style: { fg, attrs: 4, maxWidth: innerW } }); x0 += mid.length; }
+      if (mid) {
+        const t = getTheme();
+        const useInvert = !!t.useInvertSelection;
+        const selFg = t.suggestSelFg || { r: 30, g: 30, b: 30 };
+        const selBg = t.suggestSelBg || { r: 180, g: 220, b: 255 };
+        const style = useInvert ? { fg, attrs: 4, maxWidth: innerW } : { fg: selFg, bg: selBg, maxWidth: innerW };
+        Text(screen, { x: x0, y: y0, text: mid, style });
+        x0 += mid.length;
+      }
       // post
       const post = runText.slice(selEnd - runStartCol);
       if (post) { Text(screen, { x: x0, y: y0, text: post, style: { fg, maxWidth: innerW } }); x0 += post.length; }
@@ -214,11 +255,15 @@ class HistoryView {
         Text(screen, { x: xCol, y: row, text: this.userBarChar, style: { fg: barFg } });
         xCol += this.userBarChar.length + this.userBarPad;
       }
-      // Selection range on this line (flattened col space)
-      const lineSel = (selA && selB && (i >= selA.line && i <= selB.line)) ? {
-        start: (i === selA.line ? selA.col : 0),
-        end: (i === selB.line ? selB.col : (L.text || '').length)
-      } : null;
+      // Selection range on this line based on controller global range
+      let lineSel = null;
+      if (sel) {
+        const startG = this._lineStarts[i];
+        const endG = startG + (L.text || '').length;
+        const a = Math.max(sel.start, startG);
+        const b = Math.min(sel.end, endG);
+        if (a < b) lineSel = { start: a - startG, end: b - startG };
+      }
 
       if (L.tsLen && L.tsLen > 0) {
         // Draw timestamp segment in hint color, then the rest
@@ -269,21 +314,30 @@ class HistoryView {
     const innerH = this._rect.height - (showBorder ? 2 : 0);
     const lines = this._flattenLines(innerW);
     const total = lines.length;
+    const maxTop = Math.max(0, total - innerH);
+    const start = (this.anchorBottom && this._anchor) ? maxTop : Math.max(0, Math.min(this.scroll, maxTop));
+    const end = Math.min(total, start + innerH);
+    const visibleCount = Math.max(0, end - start);
+    const row0 = this.anchorBottom ? (innerY + Math.max(0, innerH - visibleCount)) : innerY;
     const lx = evt.x - innerX;
-    const ly = evt.y - innerY;
-    if (ly < 0 || ly >= innerH) return false;
-    const lineIndex = Math.max(0, Math.min(total - 1, this.scroll + ly));
-    const line = (lines[lineIndex] && lines[lineIndex].text) || '';
-    const col = Math.max(0, Math.min(line.length, lx));
+    const ly = evt.y - row0; // content-relative row
+    if (ly < 0 || ly >= visibleCount) return false;
+    const lineIndex = Math.max(0, Math.min(total - 1, start + ly));
+    const lineObj = lines[lineIndex] || { text: '', bar: false };
+    const line = lineObj.text || '';
+    const barOffset = lineObj.bar ? (this.userBarChar.length + this.userBarPad) : 0;
+    const col = Math.max(0, Math.min(line.length, lx - barOffset));
+    this._rebuildLineStarts(innerW);
+    const at = (this._lineStarts[lineIndex] || 0) + col;
     if (evt.name === 'MouseDown') {
-      this.selectionActive = true;
-      this.selAnchor = { line: lineIndex, col };
-      this.selCursor = { line: lineIndex, col };
+      this._sel.press(at);
       return true;
     }
+    if (evt.name === 'MouseDrag') {
+      this._sel.drag(at); return true;
+    }
     if (evt.name === 'MouseUp') {
-      if (this.selectionActive) { this.selCursor = { line: lineIndex, col }; return true; }
-      return false;
+      this._sel.release(at); return true;
     }
     return false;
   }

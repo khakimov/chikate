@@ -14,6 +14,7 @@ class KeyParser {
     this._pasteBuf = '';
     this._pasting = false;
     this._mouseOn = !!enableMouse;
+    this._mouseIsDown = false;
   }
 
   attach(stdin) {
@@ -102,8 +103,17 @@ class KeyParser {
           if (btn === 64) events.push({ type: 'key', name: 'WheelUp', seq: mm[0], x, y });
           else if (btn === 65) events.push({ type: 'key', name: 'WheelDown', seq: mm[0], x, y });
           else {
-            const kind = mm[4] === 'M' ? 'MouseDown' : 'MouseUp';
-            events.push({ type: 'mouse', name: kind, x, y, button: btn });
+            const isPressOrMotion = mm[4] === 'M';
+            if (!isPressOrMotion) {
+              // Release
+              this._mouseIsDown = false;
+              events.push({ type: 'mouse', name: 'MouseUp', x, y, button: btn });
+            } else {
+              // Press or drag depending on sticky state
+              const name = this._mouseIsDown ? 'MouseDrag' : 'MouseDown';
+              this._mouseIsDown = true;
+              events.push({ type: 'mouse', name, x, y, button: btn });
+            }
           }
           // Advance past the full mouse sequence
           i += mm[0].length - 1;
@@ -162,12 +172,15 @@ class KeyParser {
     try {
       // Enable basic mouse + SGR extended mode
       this.stdout.write('\u001b[?1000h');
+      // Enable button-event tracking to get motion while pressed
+      this.stdout.write('\u001b[?1002h');
       this.stdout.write('\u001b[?1006h');
     } catch {}
   }
   _disableMouse() {
     try {
       this.stdout.write('\u001b[?1006l');
+      this.stdout.write('\u001b[?1002l');
       this.stdout.write('\u001b[?1000l');
     } catch {}
   }
