@@ -105,8 +105,7 @@ function main() {
     // Commands
     const commands = [
       { text: '/help', desc: 'Open help popup' },
-      { text: '/selection on', desc: 'Enable zoned mouse selection (UI zones)' },
-      { text: '/selection off', desc: 'Disable zoned selection (native selection)' },
+      { text: '/selection', desc: 'Toggle zoned selection (history/input only)' },
       { text: '/logo', desc: 'Toggle logo visibility' },
       { text: '/status <label>', desc: 'Show a status banner with label' },
       { text: '/status off', desc: 'Close dynamic statuses' },
@@ -159,11 +158,8 @@ function main() {
           }
           input.setValue(''); sched.requestFrame(); return; }
         if (trimmed.startsWith('/scene ')) { const name = trimmed.slice('/scene '.length).trim(); if (name) history.push({ who: 'status', text: `Scene: ${name}`, ts: Date.now() }); input.setValue(''); sched.requestFrame(); return; }
-        if (trimmed === '/selection' || trimmed.startsWith('/selection ')) {
-          const arg = trimmed.slice('/selection'.length).trim().toLowerCase();
-          let next;
-          if (arg === 'on') next = true; else if (arg === 'off') next = false; else next = !zonedSelect;
-          zonedSelect = next;
+        if (trimmed === '/selection') {
+          zonedSelect = !zonedSelect;
           try { keys.setMouseEnabled(zonedSelect); } catch {}
           input.setValue(''); sched.requestFrame(); return;
         }
@@ -211,9 +207,9 @@ function main() {
       const body = `Demo App\n\n` +
         `- Startup logo hides on first message.\n` +
         `- Thinking and Typing show above input; they can overlap and stack.\n` +
-        `- Commands: /help, /selection on|off, /logo, /think, /typing, /clear.\n` +
+        `- Commands: /help, /selection (toggle), /logo, /think, /typing, /clear.\n` +
         `- Keys: F1 help, F2 or Ctrl+T toggle thinking; F3 or Ctrl+Y toggle typing.\n` +
-        `- Selection: /selection on zones selection to history/input; /selection off restores native selection.\n\n` +
+        `- Selection: /selection toggles zoned selection (history/input only) vs native selection.\n\n` +
         Array.from({ length: 40 }, (_, i) => `Tip ${i + 1}`).join('\n');
       const popup = new PopupOverlay({ title: 'Help', body, width: 60, height: 14, border: popupBorder, style: { style: 'rounded', borderFooter: 'F1 Help', borderFooterAlign: 'right', borderFooterPosition: 'top' } });
       popup.onRequestClose(() => { overlays.pop(); sched.requestFrame(); });
