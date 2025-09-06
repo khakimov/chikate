@@ -2,7 +2,7 @@
 
 A small TUI library with a clean renderer and simple, readable APIs.
 
-![Chikate demo](docs/high_quality_chikate.gif)
+![Chikate demo](https://raw.githubusercontent.com/khakimov/chikate/main/docs/high_quality_chikate.gif)
 
 ## Introduction
 Chikate helps you build fast, flicker‑free terminal apps. It focuses on a deterministic renderer, sane input handling, and APIs that read like English.
