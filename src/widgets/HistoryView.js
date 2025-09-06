@@ -220,19 +220,19 @@ class HistoryView {
     this._rebuildLineStarts(innerW);
     const sel = this._sel.getRange && this._sel.getRange();
 
-    const renderRun = (runText, runStartCol, x0, y0, fg, innerW, selectedRange) => {
+    const renderRun = (runText, runStartCol, x0, y0, fg, attrs, innerW, selectedRange) => {
       if (!runText) return x0;
       const startX = x0;
       const endCol = runStartCol + runText.length;
       const selStart = selectedRange ? Math.max(runStartCol, selectedRange.start) : Infinity;
       const selEnd = selectedRange ? Math.min(endCol, selectedRange.end) : -Infinity;
       if (!(selStart < selEnd)) {
-        Text(screen, { x: x0, y: y0, text: runText, style: { fg, maxWidth: innerW - (x0 - startX) } });
+        Text(screen, { x: x0, y: y0, text: runText, style: { fg, attrs: attrs || 0, maxWidth: innerW - (x0 - startX) } });
         return x0 + runText.length;
       }
       // pre
       const pre = runText.slice(0, selStart - runStartCol);
-      if (pre) { Text(screen, { x: x0, y: y0, text: pre, style: { fg, maxWidth: innerW } }); x0 += pre.length; }
+      if (pre) { Text(screen, { x: x0, y: y0, text: pre, style: { fg, attrs: attrs || 0, maxWidth: innerW } }); x0 += pre.length; }
       // selected
       const mid = runText.slice(selStart - runStartCol, selEnd - runStartCol);
       if (mid) {
@@ -246,7 +246,7 @@ class HistoryView {
       }
       // post
       const post = runText.slice(selEnd - runStartCol);
-      if (post) { Text(screen, { x: x0, y: y0, text: post, style: { fg, maxWidth: innerW } }); x0 += post.length; }
+      if (post) { Text(screen, { x: x0, y: y0, text: post, style: { fg, attrs: attrs || 0, maxWidth: innerW } }); x0 += post.length; }
       return x0;
     };
 
@@ -275,25 +275,25 @@ class HistoryView {
         const tsText = L.text.slice(0, L.tsLen);
         const rest = L.text.slice(L.tsLen);
         const t = getTheme();
-        xCol = renderRun(tsText, 0, xCol, row, t.hint, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.tsLen) });
+        xCol = renderRun(tsText, 0, xCol, row, t.hint, 0, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.tsLen) });
         if (L.senderLen && L.senderLen > 0) {
           const sender = rest.slice(0, L.senderLen);
           const remaining = rest.slice(L.senderLen);
           const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
-          xCol = renderRun(sender, L.tsLen, xCol, row, senderFg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: Math.min(lineSel.end, L.tsLen + L.senderLen) });
-          if (remaining) xCol = renderRun(remaining, L.tsLen + L.senderLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen + L.senderLen), end: lineSel.end });
+          xCol = renderRun(sender, L.tsLen, xCol, row, senderFg, 0, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: Math.min(lineSel.end, L.tsLen + L.senderLen) });
+          if (remaining) xCol = renderRun(remaining, L.tsLen + L.senderLen, xCol, row, L.fg, (L.attrs||0), innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen + L.senderLen), end: lineSel.end });
         } else {
-          if (rest) xCol = renderRun(rest, L.tsLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: lineSel.end });
+          if (rest) xCol = renderRun(rest, L.tsLen, xCol, row, L.fg, (L.attrs||0), innerW, lineSel && { start: Math.max(lineSel.start, L.tsLen), end: lineSel.end });
         }
       } else {
         if (L.senderLen && L.senderLen > 0) {
           const sender = L.text.slice(0, L.senderLen);
           const remaining = L.text.slice(L.senderLen);
           const senderFg = (this.style && this.style.senderFg) || getTheme().hint;
-          xCol = renderRun(sender, 0, xCol, row, senderFg, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.senderLen) });
-          if (remaining) xCol = renderRun(remaining, L.senderLen, xCol, row, L.fg, innerW, lineSel && { start: Math.max(lineSel.start, L.senderLen), end: lineSel.end });
+          xCol = renderRun(sender, 0, xCol, row, senderFg, 0, innerW, lineSel && { start: lineSel.start, end: Math.min(lineSel.end, L.senderLen) });
+          if (remaining) xCol = renderRun(remaining, L.senderLen, xCol, row, L.fg, (L.attrs||0), innerW, lineSel && { start: Math.max(lineSel.start, L.senderLen), end: lineSel.end });
         } else {
-          xCol = renderRun(L.text, 0, xCol, row, L.fg, innerW, lineSel);
+          xCol = renderRun(L.text, 0, xCol, row, L.fg, (L.attrs||0), innerW, lineSel);
         }
       }
     }
@@ -418,7 +418,8 @@ class HistoryView {
         if (effectiveOpen && m.body) {
           const bodyWrapped = wrapToWidth(String(m.body), innerW);
           for (let i = 0; i < bodyWrapped.length; i++) {
-            out.push({ text: bodyWrapped[i], fg: t.hint, tsLen: 0, senderLen: 0, bar: false, barFg: null });
+            // Fold body: dim + italic by default
+            out.push({ text: bodyWrapped[i], fg: t.hint, attrs: (2|8), tsLen: 0, senderLen: 0, bar: false, barFg: null });
             this._lineMeta.push({ type: 'fold-body', itemIndex: this.items.indexOf(m), line: i });
           }
         }
@@ -432,6 +433,9 @@ class HistoryView {
       const sender = this.showSender ? (this.senderFormat(role) + ': ') : '';
       const full = ts + sender + (m.text || '');
       const wrapped = wrapToWidth(full, innerW);
+      // per-role overrides for color/attrs
+      const roleFg = (this.style && this.style.fgByRole && this.style.fgByRole[role]) || fg;
+      const roleAttrs = (this.style && this.style.attrsByRole && this.style.attrsByRole[role]) || 0;
       for (let i = 0; i < wrapped.length; i++) {
         const line = wrapped[i];
         const tsLen = (i === 0) ? ts.length : 0;
@@ -440,7 +444,7 @@ class HistoryView {
         const styleBar = (this.style && (this.style.barFgByRole?.[role] || (role==='you'?this.style.userBarFg: this.style[role+'BarFg']))) || null;
         const fallback = role === 'assistant' ? t.historyAssistant : role === 'status' ? t.historyStatus : (t.historyUser || t.border);
         const barFg = (m && (m.barFg || m.userBarFg)) || styleBar || fallback;
-        out.push({ text: line, fg, tsLen, senderLen, bar: wantBar, barFg });
+        out.push({ text: line, fg: roleFg, attrs: roleAttrs, tsLen, senderLen, bar: wantBar, barFg });
         this._lineMeta.push({ type: 'line' });
       }
       // insert visual gap between messages to improve readability

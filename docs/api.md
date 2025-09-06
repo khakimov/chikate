@@ -46,6 +46,9 @@ Widgets
     - Spinner: set `streaming: true` to show an animated spinner in the header.
     - Global expand-all: `foldAllExpanded` flag; `setFoldAllExpanded(v)`, `toggleFoldAll()`.
     - Hooks: `onItemToggled(item)`, `onFoldAllChanged(v)`.
+  - Styling overrides:
+    - `style.fgByRole = { you, assistant, status }` to tint text per role.
+    - `style.attrsByRole = { you, assistant, status }` to apply attrs (e.g., italic 8) per role.
 
 Example — add a foldable Thinking block
 ```js
@@ -65,6 +68,7 @@ InputField
 Theme
 - Module: `src/theme/theme.js`
 - `getTheme()`, `setTheme(name)`
+- Text attrs: bold(1), dim(2), invert(4), italic(8)
 
 SelectionController
 - Module: `src/selection/SelectionController.js`

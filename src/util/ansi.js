@@ -18,6 +18,7 @@ function sgr(fg = null, bg = null, attrs = 0) {
   const parts = ['0'];
   if (attrs & 1) parts.push('1'); // bold
   if (attrs & 2) parts.push('2'); // dim
+  if (attrs & 8) parts.push('3'); // italic
   if (attrs & 4) parts.push('7'); // invert
   if (fg && typeof fg === 'object' && fg.r != null) parts.push(`38;2;${fg.r};${fg.g};${fg.b}`);
   if (bg && typeof bg === 'object' && bg.r != null) parts.push(`48;2;${bg.r};${bg.g};${bg.b}`);
@@ -26,4 +27,3 @@ function sgr(fg = null, bg = null, attrs = 0) {
 
 const ansi = { moveTo, hideCursor, showCursor, sgr };
 module.exports = { ansi };
-

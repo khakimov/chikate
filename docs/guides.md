@@ -30,6 +30,14 @@ Layout patterns
 Theming
 - Call `setTheme('dark')` or provide your own palette; widgets accept `style` to override.
 - Keep contrast high; highlight selection with a background color that fits your theme.
+ - Italic text: use attrs 8. Example per role:
+```js
+// Assistant italic + dim
+historyView.style = {
+  fgByRole: { assistant: { r: 120, g: 200, b: 255 } },
+  attrsByRole: { assistant: 2|8 }
+};
+```
 
 Mouse modes
 - `KeyParser` enables SGR mouse (1006) and drag (1002) by default; you can toggle with `keys.setMouseEnabled(on)`.
